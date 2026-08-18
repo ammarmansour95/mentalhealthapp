@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/providers/auth_provider.dart';
 import 'package:frontend/core/services/api_service.dart';
+import 'package:frontend/core/widgets/notification_bell_button.dart';
 import 'package:frontend/features/ai_interview/ai_interview_screen.dart';
 import 'package:frontend/features/assessments/assessment_quiz_screen.dart';
 import 'package:frontend/features/reports/ai_report_screen.dart';
@@ -254,6 +255,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   ),
                   Row(
                     children: [
+                      NotificationBellButton(onOpened: _fetchDashboardData),
+                      const SizedBox(width: 8),
                       InkWell(
                         onTap: _fetchDashboardData,
                         borderRadius: BorderRadius.circular(12),

@@ -191,7 +191,7 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool showCompletionButtons = _isFinished || _currentStage == 'SUMMARY_WRAPUP' || _messages.length >= 8;
+    final bool showCompletionButtons = _isFinished || _currentStage == 'SUMMARY_WRAPUP';
 
     return Scaffold(
       appBar: AppBar(

@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/providers/auth_provider.dart';
 import 'package:frontend/core/services/api_service.dart';
+import 'package:frontend/core/widgets/notification_bell_button.dart';
 import 'package:frontend/features/auth/login_screen.dart';
 
 class DoctorDashboardScreen extends StatefulWidget {
@@ -18,10 +19,12 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   Map<String, dynamic>? _doctorProfile;
   List<dynamic> _appointments = [];
   List<dynamic> _reports = [];
+  List<dynamic> _assessments = [];
   List<dynamic> _availabilities = [];
   bool _isLoading = true;
   bool _isSubmittingCredentials = false;
-  int _selectedDoctorTab = 0; // 0: Appointments, 1: AI Reports, 2: Schedule & Profile
+  int _selectedDoctorTab = 0; // 0: Appointments, 1: AI Reports & Assessments, 2: Schedule & Profile
+  String _appointmentStatusFilter = 'ALL'; // 'ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'
 
   // Onboarding / Credentialing Form Controllers
   String _selectedSpecialty = 'CBT_SPECIALIST';
@@ -84,12 +87,49 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         }
 
         if (isVerified) {
-          final appRes = await ApiService.get('/appointments/');
-          final repRes = await ApiService.get('/ai/reports/');
-          final availRes = await ApiService.get('/doctors/availability/');
-          _appointments = appRes['results'] ?? [];
-          _reports = repRes['results'] ?? [];
-          _availabilities = availRes['availabilities'] ?? [];
+          try {
+            final appRes = await ApiService.get('/appointments/');
+            if (appRes is List) {
+              _appointments = appRes;
+            } else if (appRes is Map && appRes.containsKey('results')) {
+              _appointments = appRes['results'] ?? [];
+            } else if (appRes is Map && appRes.containsKey('appointments')) {
+              _appointments = appRes['appointments'] ?? [];
+            }
+          } catch (_) {
+            _appointments = [];
+          }
+
+          try {
+            final repRes = await ApiService.get('/ai/reports/');
+            if (repRes is List) {
+              _reports = repRes;
+            } else if (repRes is Map && repRes.containsKey('results')) {
+              _reports = repRes['results'] ?? [];
+            } else if (repRes is Map && repRes.containsKey('reports')) {
+              _reports = repRes['reports'] ?? [];
+            }
+          } catch (_) {
+            _reports = [];
+          }
+
+          try {
+            final assessRes = await ApiService.get('/assessments/history/');
+            if (assessRes is List) {
+              _assessments = assessRes;
+            } else if (assessRes is Map && assessRes.containsKey('results')) {
+              _assessments = assessRes['results'] ?? [];
+            }
+          } catch (_) {
+            _assessments = [];
+          }
+
+          try {
+            final availRes = await ApiService.get('/doctors/availability/');
+            _availabilities = availRes['availabilities'] ?? [];
+          } catch (_) {
+            _availabilities = [];
+          }
         }
       }
     } catch (e) {
@@ -876,6 +916,8 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           ),
                           Row(
                             children: [
+                              NotificationBellButton(onOpened: _fetchDoctorData),
+                              const SizedBox(width: 8),
                               InkWell(
                                 onTap: _fetchDoctorData,
                                 borderRadius: BorderRadius.circular(12),
@@ -994,115 +1036,354 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             children: [
               Icon(Icons.event_available, size: 40, color: AppTheme.primaryTeal.withOpacity(0.4)),
               const SizedBox(height: 12),
-              const Text('لا توجد مواعيد محجوزة حالياً.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 13)),
+              const Text('لا توجد مواعيد مسجلة حالياً.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 13)),
             ],
           ),
         ),
       );
     }
 
+    final pendingList = _appointments.where((a) => a['status'] == 'PENDING').toList();
+    final confirmedList = _appointments.where((a) => a['status'] == 'CONFIRMED').toList();
+    final completedList = _appointments.where((a) => a['status'] == 'COMPLETED').toList();
+    final cancelledList = _appointments.where((a) => a['status'] == 'CANCELLED').toList();
+    final patientCancelledList = cancelledList.where((a) => a['is_cancelled_by_patient'] == true).toList();
+
+    List<dynamic> filteredList;
+    if (_appointmentStatusFilter == 'PENDING') {
+      filteredList = pendingList;
+    } else if (_appointmentStatusFilter == 'CONFIRMED') {
+      filteredList = confirmedList;
+    } else if (_appointmentStatusFilter == 'COMPLETED') {
+      filteredList = completedList;
+    } else if (_appointmentStatusFilter == 'CANCELLED') {
+      filteredList = cancelledList;
+    } else {
+      filteredList = _appointments;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: _appointments.map((app) {
-        final status = app['status'];
-        final isConfirmed = status == 'CONFIRMED';
-        final isPending = status == 'PENDING';
-
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          child: Padding(
-            padding: const EdgeInsets.all(14.0),
-            child: Column(
+      children: [
+        // 1. Patient Cancellation Notification Alert Banner (If Any)
+        if (patientCancelledList.isNotEmpty) ...[
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.alertRose.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.alertRose.withOpacity(0.3)),
+            ),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryTeal.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.person_outline, color: AppTheme.primaryTeal, size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'المريض: ${app['patient_name'] ?? 'مريض مسجل'}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (isConfirmed
-                                ? AppTheme.sageGreen
-                                : isPending
-                                    ? AppTheme.oceanAzure
-                                    : AppTheme.alertRose)
-                            .withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        isConfirmed
-                            ? '✓ مؤكد'
-                            : isPending
-                                ? 'قيد الموافقة'
-                                : 'ملغي',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: isConfirmed
-                              ? AppTheme.sageGreen
-                              : isPending
-                                  ? AppTheme.oceanAzure
-                                  : AppTheme.alertRose,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text('التاريخ: ${app['appointment_date']} | الوقت: ${app['start_time']}', style: const TextStyle(fontSize: 12, color: AppTheme.slateMuted)),
-                if (isPending) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                const Icon(Icons.notifications_active_outlined, color: AppTheme.alertRose, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.alertRose,
-                          side: BorderSide(color: AppTheme.alertRose.withOpacity(0.3)),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () => _updateAppointmentStatus(app['id'], 'CANCELLED'),
-                        child: const Text('رفض', style: TextStyle(fontSize: 11.5)),
+                      Text(
+                        'إشعار إلغاء: قام مريض بإلغاء موعد (${patientCancelledList.length} مواعيد ملغية من قِبل المرضى)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.alertRose),
                       ),
-                      const SizedBox(width: 8),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.sageGreen,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: () => _updateAppointmentStatus(app['id'], 'CONFIRMED'),
-                        child: const Text('قبول وتأكيد', style: TextStyle(fontSize: 11.5)),
+                      const SizedBox(height: 2),
+                      Text(
+                        'المريض: ${patientCancelledList.first['patient_name'] ?? 'مريض'} - السبب: ${patientCancelledList.first['cancellation_reason'] ?? 'تم الإلغاء بواسطة المريض'}',
+                        style: const TextStyle(fontSize: 11.5, color: AppTheme.slateNavy),
                       ),
                     ],
                   ),
-                ],
+                ),
               ],
             ),
           ),
-        );
-      }).toList(),
+          const SizedBox(height: 12),
+        ],
+
+        // 2. Status Filter Chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildApptFilterChip('ALL', 'الكل (${_appointments.length})'),
+              const SizedBox(width: 6),
+              _buildApptFilterChip('PENDING', '⏳ قيد الموافقة (${pendingList.length})', isHighlight: pendingList.isNotEmpty),
+              const SizedBox(width: 6),
+              _buildApptFilterChip('CONFIRMED', '📅 المؤكدة (${confirmedList.length})'),
+              const SizedBox(width: 6),
+              _buildApptFilterChip('COMPLETED', '✅ المكتملة (${completedList.length})'),
+              const SizedBox(width: 6),
+              _buildApptFilterChip('CANCELLED', '🚫 الملغية (${cancelledList.length})'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        // 3. Appointments List
+        if (filteredList.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(
+              child: Text('لا توجد مواعيد في هذا التصنيف حالياً.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 12.5)),
+            ),
+          )
+        else
+          ...filteredList.map((app) {
+            final status = app['status'];
+            final isConfirmed = status == 'CONFIRMED';
+            final isPending = status == 'PENDING';
+            final isCancelled = status == 'CANCELLED';
+            final isCompleted = status == 'COMPLETED';
+            final riskLevel = app['patient_risk_level'] ?? 'LOW';
+            final bool isHighRisk = riskLevel == 'HIGH';
+            final bool isModRisk = riskLevel == 'MODERATE';
+            final bool isPatientCancelled = app['is_cancelled_by_patient'] == true;
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              elevation: 1.5,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header: Patient & Badges
+                    Row(
+                      children: [
+                        Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal.withOpacity(0.08),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.person_outline, color: AppTheme.primaryTeal, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                app['patient_name'] ?? 'مريض مسجل',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.slateNavy),
+                              ),
+                              if (app['patient_email'] != null)
+                                Text(
+                                  app['patient_email'],
+                                  style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted),
+                                ),
+                            ],
+                          ),
+                        ),
+                        // Patient Risk Situation Pill
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          margin: const EdgeInsets.only(left: 6),
+                          decoration: BoxDecoration(
+                            color: (isHighRisk
+                                    ? AppTheme.alertRose
+                                    : isModRisk
+                                        ? AppTheme.oceanAzure
+                                        : AppTheme.sageGreen)
+                                .withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            isHighRisk
+                                ? '🔴 خطورة مرتفعة'
+                                : isModRisk
+                                    ? '🟡 خطورة متوسطة'
+                                    : '🟢 حالة مستقرة',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: isHighRisk
+                                  ? AppTheme.alertRose
+                                  : isModRisk
+                                      ? AppTheme.oceanAzure
+                                      : AppTheme.sageGreen,
+                            ),
+                          ),
+                        ),
+                        // Status Pill
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (isConfirmed
+                                    ? AppTheme.sageGreen
+                                    : isPending
+                                        ? AppTheme.oceanAzure
+                                        : isCompleted
+                                            ? AppTheme.primaryTeal
+                                            : AppTheme.alertRose)
+                                .withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            isConfirmed
+                                ? '✓ مؤكد'
+                                : isPending
+                                    ? 'قيد الموافقة'
+                                    : isCompleted
+                                        ? 'مكتمل'
+                                        : 'ملغي',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isConfirmed
+                                  ? AppTheme.sageGreen
+                                  : isPending
+                                      ? AppTheme.oceanAzure
+                                      : isCompleted
+                                          ? AppTheme.primaryTeal
+                                          : AppTheme.alertRose,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 18),
+
+                    // Date & Time
+                    Row(
+                      children: [
+                        const Icon(Icons.calendar_today_outlined, size: 14, color: AppTheme.primaryTeal),
+                        const SizedBox(width: 6),
+                        Text(
+                          'التاريخ: ${app['appointment_date']}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                        ),
+                        const SizedBox(width: 14),
+                        const Icon(Icons.access_time, size: 14, color: AppTheme.primaryTeal),
+                        const SizedBox(width: 6),
+                        Text(
+                          'الوقت: ${(app['start_time'] as String).substring(0, 5)}',
+                          style: const TextStyle(fontSize: 12, color: AppTheme.slateNavy),
+                        ),
+                      ],
+                    ),
+
+                    // Patient Notes if any
+                    if (app['patient_notes'] != null && (app['patient_notes'] as String).isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.slateLight,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.chat_bubble_outline, size: 13, color: AppTheme.slateMuted),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'ملاحظات المريض: ${app['patient_notes']}',
+                                style: const TextStyle(fontSize: 11, color: AppTheme.slateNavy),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // Cancellation Details if Cancelled
+                    if (isCancelled) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.alertRose.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.alertRose.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.cancel_outlined, size: 14, color: AppTheme.alertRose),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                isPatientCancelled
+                                    ? '⚠️ أُلغي من قِبل المريض: ${app['cancellation_reason'] ?? 'بدون سبب معلن'}'
+                                    : 'أُلغي من قِبل الطبيب/الإدارة: ${app['cancellation_reason'] ?? 'تم الإلغاء'}',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.alertRose),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // Action Buttons
+                    if (isPending) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.alertRose,
+                              side: BorderSide(color: AppTheme.alertRose.withOpacity(0.3)),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () => _updateAppointmentStatus(app['id'], 'CANCELLED'),
+                            child: const Text('رفض الموعد', style: TextStyle(fontSize: 11.5)),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.sageGreen,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () => _updateAppointmentStatus(app['id'], 'CONFIRMED'),
+                            child: const Text('قبول وتأكيد الموعد', style: TextStyle(fontSize: 11.5)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+      ],
     );
   }
 
-  // --- TAB 2: AI REPORTS ---
+  Widget _buildApptFilterChip(String filterKey, String label, {bool isHighlight = false}) {
+    final isSelected = _appointmentStatusFilter == filterKey;
+    return ChoiceChip(
+      label: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? Colors.white : (isHighlight ? AppTheme.oceanAzure : AppTheme.slateNavy),
+        ),
+      ),
+      selected: isSelected,
+      selectedColor: AppTheme.primaryTeal,
+      backgroundColor: isHighlight ? AppTheme.oceanAzure.withOpacity(0.12) : AppTheme.slateLight,
+      onSelected: (selected) {
+        if (selected) setState(() => _appointmentStatusFilter = filterKey);
+      },
+    );
+  }
+
+  // --- TAB 2: CLINICAL REPORTS & PSYCHOLOGICAL ASSESSMENTS (PHQ-9, GAD-7, AraBERT) ---
   Widget _buildReportsTab() {
-    if (_reports.isEmpty) {
+    if (_reports.isEmpty && _assessments.isEmpty) {
       return Card(
         child: Padding(
           padding: const EdgeInsets.all(28),
@@ -1110,83 +1391,739 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             children: [
               Icon(Icons.psychology_outlined, size: 40, color: AppTheme.oceanAzure.withOpacity(0.4)),
               const SizedBox(height: 12),
-              const Text('لا توجد تقارير سريرية جديدة حالياً.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 13)),
+              const Text('لا توجد تقارير سريرية أو مقاييس مسجلة حالياً.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 13)),
             ],
           ),
         ),
       );
     }
 
+    // Group both AI Reports and Scale Assessments (PHQ-9, GAD-7) by Patient Key (Email / ID / Name)
+    final Map<String, Map<String, dynamic>> patientGroups = {};
+
+    String getPatientKey(dynamic item) {
+      if (item is! Map) return 'unknown';
+      final email = (item['patient_email'] as String?)?.trim().toLowerCase();
+      if (email != null && email.isNotEmpty) return email;
+      final id = item['patient_id']?.toString() ?? item['patient']?.toString();
+      if (id != null && id.isNotEmpty) return id;
+      return (item['patient_name'] as String?)?.trim() ?? 'unknown';
+    }
+
+    // 1. Process AI Reports
+    for (final rep in _reports) {
+      final pKey = getPatientKey(rep);
+      final pName = rep['patient_name'] ?? 'مريض مسجل';
+      final pEmail = rep['patient_email'];
+
+      if (!patientGroups.containsKey(pKey)) {
+        patientGroups[pKey] = {
+          'patient_key': pKey,
+          'patient_name': pName,
+          'patient_email': pEmail,
+          'reports': <dynamic>[],
+          'assessments': <dynamic>[],
+          'highest_risk': rep['preliminary_risk_level'] ?? 'LOW',
+          'latest_date': rep['created_at'] ?? '',
+        };
+      }
+
+      final group = patientGroups[pKey]!;
+      (group['reports'] as List<dynamic>).add(rep);
+
+      final curRisk = rep['preliminary_risk_level'] ?? 'LOW';
+      if (curRisk == 'HIGH') {
+        group['highest_risk'] = 'HIGH';
+      } else if (curRisk == 'MODERATE' && group['highest_risk'] != 'HIGH') {
+        group['highest_risk'] = 'MODERATE';
+      }
+    }
+
+    // 2. Process Psychological Assessments (PHQ-9 & GAD-7)
+    for (final ass in _assessments) {
+      final pKey = getPatientKey(ass);
+      final pName = ass['patient_name'] ?? 'مريض مسجل';
+      final pEmail = ass['patient_email'];
+
+      if (!patientGroups.containsKey(pKey)) {
+        patientGroups[pKey] = {
+          'patient_key': pKey,
+          'patient_name': pName,
+          'patient_email': pEmail,
+          'reports': <dynamic>[],
+          'assessments': <dynamic>[],
+          'highest_risk': 'LOW',
+          'latest_date': ass['created_at'] ?? '',
+        };
+      }
+
+      final group = patientGroups[pKey]!;
+      (group['assessments'] as List<dynamic>).add(ass);
+
+      // Check severity level
+      final sev = ass['severity_level'] ?? '';
+      if (sev == 'SEVERE' || sev == 'MODERATELY_SEVERE') {
+        group['highest_risk'] = 'HIGH';
+      } else if (sev == 'MODERATE' && group['highest_risk'] != 'HIGH') {
+        group['highest_risk'] = 'MODERATE';
+      }
+    }
+
+    // Sort all entries in each patient group by date (newest first)
+    patientGroups.forEach((key, group) {
+      (group['reports'] as List<dynamic>).sort((a, b) {
+        final da = a['created_at'] ?? '';
+        final db = b['created_at'] ?? '';
+        return db.compareTo(da);
+      });
+      (group['assessments'] as List<dynamic>).sort((a, b) {
+        final da = a['created_at'] ?? '';
+        final db = b['created_at'] ?? '';
+        return db.compareTo(da);
+      });
+
+      String latestD = '';
+      if ((group['reports'] as List).isNotEmpty) {
+        latestD = (group['reports'] as List).first['created_at'] ?? '';
+      }
+      if ((group['assessments'] as List).isNotEmpty) {
+        final assD = (group['assessments'] as List).first['created_at'] ?? '';
+        if (assD.compareTo(latestD) > 0) latestD = assD;
+      }
+      group['latest_date'] = latestD;
+    });
+
+    final patientList = patientGroups.values.toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: _reports.map((rep) {
-        final isReviewed = rep['is_reviewed_by_doctor'] == true;
-        return Card(
-          margin: const EdgeInsets.only(bottom: 10),
-          child: Padding(
-            padding: const EdgeInsets.all(14.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+      children: [
+        // Section Header Info
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryTeal.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppTheme.primaryTeal.withOpacity(0.15)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.folder_shared_outlined, color: AppTheme.primaryTeal, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'سجلات المرضى والمقاييس السريرية (${patientList.length} مرضى مسجلين)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.primaryTealDark),
+                ),
+              ),
+              const Text('مرتب حسب المريض', style: TextStyle(fontSize: 11, color: AppTheme.slateMuted)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Grouped Patient Cards
+        ...patientList.map((group) {
+          final pName = group['patient_name'] as String;
+          final reports = group['reports'] as List<dynamic>;
+          final assessments = group['assessments'] as List<dynamic>;
+          final totalTests = reports.length + assessments.length;
+          final highestRisk = group['highest_risk'] as String;
+          final latestDate = (group['latest_date'] as String).split('T').first;
+          final bool isHigh = highestRisk == 'HIGH';
+          final bool isMod = highestRisk == 'MODERATE';
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            elevation: 1.5,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: InkWell(
+              onTap: () => _openPatientReportsHistoryModal(group),
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(14.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppTheme.oceanAzure.withOpacity(0.12),
-                      child: const Icon(Icons.psychology, color: AppTheme.oceanAzure, size: 18),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('المريض: ${rep['patient_name'] ?? 'مريض'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                          Text('مستوى الخطورة: ${rep['preliminary_risk_level_display'] ?? rep['preliminary_risk_level']}', style: const TextStyle(fontSize: 11.5, color: AppTheme.slateMuted)),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: (isReviewed ? AppTheme.sageGreen : AppTheme.oceanAzure).withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        isReviewed ? '✓ تمت المراجعة' : 'قيد المراجعة',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: isReviewed ? AppTheme.sageGreen : AppTheme.oceanAzure,
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.person, color: AppTheme.primaryTeal, size: 22),
                         ),
-                      ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                pName,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.slateNavy),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  Icon(Icons.history, size: 13, color: AppTheme.slateMuted),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'آخر تقييم: $latestDate',
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: (isHigh
+                                    ? AppTheme.alertRose
+                                    : isMod
+                                        ? AppTheme.oceanAzure
+                                        : AppTheme.sageGreen)
+                                .withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            isHigh
+                                ? '🔴 خطورة مرتفعة'
+                                : isMod
+                                    ? '🟡 خطورة متوسطة'
+                                    : '🟢 حالة مستقرة',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.bold,
+                              color: isHigh
+                                  ? AppTheme.alertRose
+                                  : isMod
+                                      ? AppTheme.oceanAzure
+                                      : AppTheme.sageGreen,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.slateLight,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                '📊 $totalTests فحوصات (${reports.length} ذكاء اصطناعي + ${assessments.length} مقاييس)',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Row(
+                          children: [
+                            Text(
+                              'عرض السجل السريري الشامل',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward_ios, size: 12, color: AppTheme.primaryTeal),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const Divider(height: 16),
-                Text(
-                  rep['summary_ar_encrypted'] ?? '',
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12, height: 1.4, color: AppTheme.slateNavy),
-                ),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  // --- MODAL: PATIENT CHRONOLOGICAL REPORTS & ASSESSMENTS TIMELINE ---
+  void _openPatientReportsHistoryModal(Map<String, dynamic> patientGroup) {
+    final pName = patientGroup['patient_name'] as String;
+    final reports = (patientGroup['reports'] as List<dynamic>?) ?? [];
+    final assessments = (patientGroup['assessments'] as List<dynamic>?) ?? [];
+    String subFilter = 'ALL'; // 'ALL', 'AI', 'PHQ9', 'GAD7'
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          // Combine and sort both lists
+          final List<Map<String, dynamic>> combinedItems = [];
+          for (final r in reports) {
+            combinedItems.add({'type': 'AI_REPORT', 'date': r['created_at'] ?? '', 'data': r});
+          }
+          for (final a in assessments) {
+            final code = a['assessment_code'] ?? 'SCALE';
+            combinedItems.add({'type': code, 'date': a['created_at'] ?? '', 'data': a});
+          }
+
+          combinedItems.sort((a, b) => (b['date'] as String).compareTo(a['date'] as String));
+
+          final filteredItems = combinedItems.where((item) {
+            if (subFilter == 'AI') return item['type'] == 'AI_REPORT';
+            if (subFilter == 'PHQ9') return item['type'] == 'PHQ-9';
+            if (subFilter == 'GAD7') return item['type'] == 'GAD-7';
+            return true;
+          }).toList();
+
+          return DraggableScrollableSheet(
+            initialChildSize: 0.88,
+            minChildSize: 0.5,
+            maxChildSize: 0.96,
+            builder: (_, scrollController) => Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // Modal Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: AppTheme.surfaceWhite,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                      border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.15))),
                     ),
-                    onPressed: () => _openReportReviewModal(rep),
-                    icon: const Icon(Icons.rate_review_outlined, size: 15),
-                    label: Text(isReviewed ? 'تعديل التقييم' : 'مراجعة وكتابة التقييم', style: const TextStyle(fontSize: 12)),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryTeal.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.history_edu, color: AppTheme.primaryTeal, size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'السجل الإكلينيكي الشامل: $pName',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.slateNavy),
+                                  ),
+                                  Text(
+                                    'إجمالي الفحوصات: ${combinedItems.length} (المقابلات الذكية ومقاييس PHQ-9 و GAD-7)',
+                                    style: const TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.close, color: AppTheme.slateMuted),
+                              onPressed: () => Navigator.pop(ctx),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        // Sub-filter tabs
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              ChoiceChip(
+                                label: Text('الكل (${combinedItems.length})', style: TextStyle(fontSize: 11, color: subFilter == 'ALL' ? Colors.white : AppTheme.slateNavy)),
+                                selected: subFilter == 'ALL',
+                                selectedColor: AppTheme.primaryTeal,
+                                onSelected: (s) => setModalState(() => subFilter = 'ALL'),
+                              ),
+                              const SizedBox(width: 6),
+                              ChoiceChip(
+                                label: Text('المقابلات الذكية (${reports.length})', style: TextStyle(fontSize: 11, color: subFilter == 'AI' ? Colors.white : AppTheme.slateNavy)),
+                                selected: subFilter == 'AI',
+                                selectedColor: AppTheme.primaryTeal,
+                                onSelected: (s) => setModalState(() => subFilter = 'AI'),
+                              ),
+                              const SizedBox(width: 6),
+                              ChoiceChip(
+                                label: Text('مقياس الاكتئاب PHQ-9 (${assessments.where((a) => a['assessment_code'] == 'PHQ-9').length})', style: TextStyle(fontSize: 11, color: subFilter == 'PHQ9' ? Colors.white : AppTheme.slateNavy)),
+                                selected: subFilter == 'PHQ9',
+                                selectedColor: AppTheme.primaryTeal,
+                                onSelected: (s) => setModalState(() => subFilter = 'PHQ9'),
+                              ),
+                              const SizedBox(width: 6),
+                              ChoiceChip(
+                                label: Text('مقياس القلق GAD-7 (${assessments.where((a) => a['assessment_code'] == 'GAD-7').length})', style: TextStyle(fontSize: 11, color: subFilter == 'GAD7' ? Colors.white : AppTheme.slateNavy)),
+                                selected: subFilter == 'GAD7',
+                                selectedColor: AppTheme.primaryTeal,
+                                onSelected: (s) => setModalState(() => subFilter = 'GAD7'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Chronological List of Entries
+                  Expanded(
+                    child: filteredItems.isEmpty
+                        ? const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24.0),
+                              child: Text('لا توجد عناصر مسجلة في هذا القسم.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 13)),
+                            ),
+                          )
+                        : ListView.separated(
+                            controller: scrollController,
+                            padding: const EdgeInsets.all(16),
+                            itemCount: filteredItems.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 14),
+                            itemBuilder: (context, index) {
+                              final item = filteredItems[index];
+                              final isAi = item['type'] == 'AI_REPORT';
+                              final rawDate = item['date'] as String;
+                              final formattedDate = rawDate.contains('T')
+                                  ? rawDate.split('T').first + ' (' + rawDate.split('T').last.substring(0, 5) + ')'
+                                  : rawDate;
+
+                              if (isAi) {
+                                final rep = item['data'] as Map<String, dynamic>;
+                                final isReviewed = rep['is_reviewed_by_doctor'] == true;
+                                final riskLevel = rep['preliminary_risk_level'] ?? 'LOW';
+                                final bool isHigh = riskLevel == 'HIGH';
+                                final bool isMod = riskLevel == 'MODERATE';
+
+                                return Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(color: Colors.grey.withOpacity(0.18)),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.all(6),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.oceanAzure.withOpacity(0.08),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: const Icon(Icons.psychology, size: 16, color: AppTheme.oceanAzure),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'تقرير الذكاء الاصطناعي (AraBERT)',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slateNavy),
+                                                ),
+                                              ],
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: (isHigh ? AppTheme.alertRose : isMod ? AppTheme.oceanAzure : AppTheme.sageGreen).withOpacity(0.12),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                isHigh ? '🔴 خطورة مرتفعة' : isMod ? '🟡 خطورة متوسطة' : '🟢 حالة مستقرة',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isHigh ? AppTheme.alertRose : isMod ? AppTheme.oceanAzure : AppTheme.sageGreen,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text('التاريخ: $formattedDate', style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted)),
+                                        const Divider(height: 16),
+                                        Text(
+                                          rep['summary_ar_encrypted'] ?? '',
+                                          maxLines: 4,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 12, height: 1.4, color: AppTheme.slateNavy),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: (isReviewed ? AppTheme.sageGreen : AppTheme.oceanAzure).withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                isReviewed ? '✓ تم التقييم والاعتماد' : '⏳ قيد المراجعة',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isReviewed ? AppTheme.sageGreen : AppTheme.oceanAzure,
+                                                ),
+                                              ),
+                                            ),
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppTheme.primaryTeal,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                              ),
+                                              onPressed: () {
+                                                Navigator.pop(ctx);
+                                                _openReportReviewModal(rep);
+                                              },
+                                              icon: const Icon(Icons.rate_review_outlined, size: 14),
+                                              label: Text(isReviewed ? 'تعديل الملاحظات' : 'مراجعة وكتابة التقييم', style: const TextStyle(fontSize: 11.5)),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                // Quantitative Scale: PHQ-9 (9 questions) or GAD-7 (7 questions)
+                                final ass = item['data'] as Map<String, dynamic>;
+                                final code = ass['assessment_code'] ?? 'SCALE';
+                                final title = ass['assessment_title_ar'] ?? code;
+                                final score = ass['total_score'] ?? 0;
+                                final maxScore = code == 'PHQ-9' ? 27 : 21;
+                                final sevDisplay = ass['severity_level_display'] ?? ass['severity_level'] ?? 'MILD';
+                                final interp = ass['interpretation_ar'] ?? ass['interpretation_en'] ?? '';
+                                final answers = (ass['answers'] as List<dynamic>?) ?? [];
+                                final bool isPhq = code == 'PHQ-9';
+
+                                return Card(
+                                  elevation: 1,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(color: (isPhq ? AppTheme.oceanAzure : AppTheme.primaryTeal).withOpacity(0.3)),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(14),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Container(
+                                                  padding: const EdgeInsets.all(6),
+                                                  decoration: BoxDecoration(
+                                                    color: (isPhq ? AppTheme.oceanAzure : AppTheme.primaryTeal).withOpacity(0.1),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                  child: Icon(
+                                                    isPhq ? Icons.assignment_outlined : Icons.health_and_safety_outlined,
+                                                    size: 16,
+                                                    color: isPhq ? AppTheme.oceanAzure : AppTheme.primaryTeal,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  title,
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slateNavy),
+                                                ),
+                                              ],
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.oceanAzure.withOpacity(0.12),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: Text(
+                                                'الدرجة: $score / $maxScore',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.oceanAzure),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text('التاريخ: $formattedDate', style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted)),
+                                        const Divider(height: 16),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.slateLight,
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                'التصنيف السريري: $sevDisplay',
+                                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        if (interp.isNotEmpty) ...[
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            interp,
+                                            style: const TextStyle(fontSize: 12, height: 1.4, color: AppTheme.slateNavy),
+                                          ),
+                                        ],
+                                        const SizedBox(height: 12),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                            ),
+                                            onPressed: () => _openAssessmentAnswersModal(ass),
+                                            icon: const Icon(Icons.list_alt, size: 14),
+                                            label: Text(
+                                              'عرض إجابات الأسئلة (${answers.isNotEmpty ? answers.length : (isPhq ? 9 : 7)} أسئلة)',
+                                              style: const TextStyle(fontSize: 11.5),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // --- MODAL: SHOW INDIVIDUAL QUESTION & ANSWER BREAKDOWN FOR PHQ-9 / GAD-7 ---
+  void _openAssessmentAnswersModal(Map<String, dynamic> assessment) {
+    final title = assessment['assessment_title_ar'] ?? assessment['assessment_code'] ?? 'المقياس السريري';
+    final code = assessment['assessment_code'] ?? 'SCALE';
+    final score = assessment['total_score'] ?? 0;
+    final maxScore = code == 'PHQ-9' ? 27 : 21;
+    final answers = (assessment['answers'] as List<dynamic>?) ?? [];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            const Icon(Icons.checklist_rtl, color: AppTheme.primaryTeal, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'تفاصيل إجابات $title',
+                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.oceanAzure.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('النتيجة الإجمالية للمقياس:', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.slateNavy)),
+                    Text('$score من أصل $maxScore', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.oceanAzure)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (answers.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Center(
+                    child: Text('تم تسجيل النتيجة الإجمالية للمقياس بنجاح.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 12)),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: answers.length,
+                    separatorBuilder: (_, __) => const Divider(height: 12),
+                    itemBuilder: (context, idx) {
+                      final ans = answers[idx];
+                      final qText = ans['question_text_ar'] ?? 'السؤال ${idx + 1}';
+                      final optLabel = ans['option_label_ar'] ?? 'الإجابة المختارة';
+                      final ansScore = ans['score'] ?? 0;
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${idx + 1}. $qText',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('• الإجابة: $optLabel', style: const TextStyle(fontSize: 11.5, color: AppTheme.primaryTealDark)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.slateLight,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text('+$ansScore نقاط', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.slateMuted)),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
-        );
-      }).toList(),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryTeal,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
     );
   }
 

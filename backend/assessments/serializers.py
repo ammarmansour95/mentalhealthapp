@@ -117,15 +117,29 @@ class AssessmentSubmitSerializer(serializers.Serializer):
         return submission
 
 
+class AssessmentAnswerDetailSerializer(serializers.ModelSerializer):
+    question_text_ar = serializers.CharField(source='question.question_text_ar', read_only=True)
+    option_label_ar = serializers.CharField(source='selected_option.label_ar', read_only=True)
+
+    class Meta:
+        model = AssessmentAnswer
+        fields = ['id', 'question_text_ar', 'option_label_ar', 'score']
+
+
 class PatientAssessmentSubmissionSerializer(serializers.ModelSerializer):
+    patient_id = serializers.CharField(source='patient.id', read_only=True)
+    patient_name = serializers.CharField(source='patient.user.get_full_name', read_only=True)
+    patient_email = serializers.CharField(source='patient.user.email', read_only=True)
     assessment_code = serializers.CharField(source='assessment.code', read_only=True)
     assessment_title_ar = serializers.CharField(source='assessment.title_ar', read_only=True)
     severity_level_display = serializers.CharField(source='get_severity_level_display', read_only=True)
+    answers = AssessmentAnswerDetailSerializer(many=True, read_only=True)
 
     class Meta:
         model = PatientAssessmentSubmission
         fields = [
-            'id', 'assessment_code', 'assessment_title_ar', 'total_score',
+            'id', 'patient_id', 'patient_name', 'patient_email',
+            'assessment_code', 'assessment_title_ar', 'total_score',
             'severity_level', 'severity_level_display',
-            'interpretation_en', 'interpretation_ar', 'created_at'
+            'interpretation_en', 'interpretation_ar', 'answers', 'created_at'
         ]

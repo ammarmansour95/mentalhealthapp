@@ -88,3 +88,87 @@ class AdminAuditLogsView(APIView):
             for l in logs
         ]
         return Response({'success': True, 'logs': data})
+
+
+# --- NOTIFICATIONS API ---
+from rest_framework import serializers
+from core.models import Notification
+from core.notifications_service import generate_session_reminders
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    notification_type_display = serializers.CharField(source='get_notification_type_display', read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'title', 'message', 'notification_type',
+            'notification_type_display', 'is_read', 'metadata',
+            'created_at'
+        ]
+        read_only_fields = ['id', 'created_at']
+
+
+class NotificationListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # Generate session reminders for today on fetch
+        try:
+            generate_session_reminders()
+        except Exception:
+            pass
+
+        notifications = Notification.objects.filter(recipient=request.user)
+        unread_count = notifications.filter(is_read=False).count()
+        serialized = NotificationSerializer(notifications[:40], many=True).data
+
+        return Response({
+            'success': True,
+            'unread_count': unread_count,
+            'notifications': serialized
+        })
+
+
+class MarkNotificationReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk):
+        try:
+            notification = Notification.objects.get(id=pk, recipient=request.user)
+        except Notification.DoesNotExist:
+            return Response({'success': False, 'message': 'Notification not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        notification.is_read = True
+        notification.save()
+
+        unread_count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+
+        return Response({
+            'success': True,
+            'message': 'Notification marked as read.',
+            'unread_count': unread_count
+        })
+
+
+class MarkAllNotificationsReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+        return Response({
+            'success': True,
+            'message': 'All notifications marked as read.',
+            'unread_count': 0
+        })
+
+
+class UnreadNotificationCountView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        count = Notification.objects.filter(recipient=request.user, is_read=False).count()
+        return Response({
+            'success': True,
+            'unread_count': count
+        })

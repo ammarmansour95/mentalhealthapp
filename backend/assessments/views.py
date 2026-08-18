@@ -58,5 +58,6 @@ class PatientAssessmentHistoryView(generics.ListAPIView):
         elif user.role in ['DOCTOR', 'ADMIN']:
             patient_id = self.request.query_params.get('patient_id')
             if patient_id:
-                return PatientAssessmentSubmission.objects.filter(patient_id=patient_id)
+                return PatientAssessmentSubmission.objects.filter(patient_id=patient_id).order_by('-created_at')
+            return PatientAssessmentSubmission.objects.all().order_by('-created_at')
         return PatientAssessmentSubmission.objects.none()

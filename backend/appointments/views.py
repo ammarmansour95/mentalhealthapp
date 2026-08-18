@@ -92,6 +92,13 @@ class BookAppointmentView(APIView):
             details={'appointment_id': str(appointment.id), 'doctor': doctor.user.email}
         )
 
+        # Send Real-time In-App Notification to Doctor
+        try:
+            from core.notifications_service import notify_doctor_new_appointment
+            notify_doctor_new_appointment(appointment)
+        except Exception:
+            pass
+
         return Response({
             'success': True,
             'message': 'Appointment successfully booked and confirmed.',
@@ -138,6 +145,18 @@ class UpdateAppointmentStatusView(APIView):
 
         appointment.status = new_status
         appointment.save()
+
+        # Send Real-time Status Change Notification
+        try:
+            from core.notifications_service import notify_appointment_status_change
+            notify_appointment_status_change(
+                appointment=appointment,
+                new_status=new_status,
+                cancelled_by=request.user,
+                reason=appointment.cancellation_reason
+            )
+        except Exception:
+            pass
 
         return Response({
             'success': True,

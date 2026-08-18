@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/providers/auth_provider.dart';
 import 'package:frontend/core/services/api_service.dart';
+import 'package:frontend/core/widgets/notification_bell_button.dart';
 import 'package:frontend/features/auth/login_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -696,6 +697,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           ),
                           Row(
                             children: [
+                              NotificationBellButton(onOpened: _fetchAdminData),
+                              const SizedBox(width: 8),
                               InkWell(
                                 onTap: _fetchAdminData,
                                 borderRadius: BorderRadius.circular(12),

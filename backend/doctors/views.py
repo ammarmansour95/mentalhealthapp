@@ -114,6 +114,13 @@ class DoctorProfileMeView(APIView):
             doctor.rejection_reason = ''
             doctor.save()
 
+            # Send Notification to Admins
+            try:
+                from core.notifications_service import notify_admins_new_doctor_application
+                notify_admins_new_doctor_application(doctor)
+            except Exception:
+                pass
+
         return Response({
             'success': True,
             'message': 'تم إرسال وتشفير بيانات وتراخيص الاعتماد بنجاح (AES-256)، وهي قيد المراجعة لدى المشرف.',
@@ -317,6 +324,13 @@ class AdminVerifyDoctorView(APIView):
             message = 'تم رفض الوثيقة وإشعار الطبيب بالملاحظات لإعادة تقديمها.'
         else:
             return Response({'success': False, 'message': 'Invalid action. Use APPROVE or REJECT.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Send Real-time Notification to Doctor
+        try:
+            from core.notifications_service import notify_doctor_verification_result
+            notify_doctor_verification_result(doctor, action == 'APPROVE', notes=reason)
+        except Exception:
+            pass
 
         return Response({
             'success': True,

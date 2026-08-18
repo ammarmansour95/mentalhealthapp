@@ -13,6 +13,7 @@ urlpatterns = [
     path('api/treatment/', include('treatment.urls')),
     path('api/messaging/', include('messaging.urls')),
     path('api/admin/', include('core.urls')),
+    path('api/notifications/', include('core.notification_urls')),
 ]
 
 if settings.DEBUG:

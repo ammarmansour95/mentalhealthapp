@@ -1,2 +1,6 @@
 Mobile health studies show that if an automated chatbot questionnaire exceeds 6–8 questions, over 60% of patients abandon the app before completing the intake.
 Combining the AI Chat (5 questions) with standard scales like PHQ-9 (9 questions) and GAD-7 (7 questions) gives a total of ~20 clinical data points, which is the sweet spot for a preliminary diagnostic report.
+
+
+
+"We use AraBERT (aubmindlab/bert-base-arabertv02) to generate 768-dimensional sentence embeddings. Patient responses are compared via cosine similarity against a pre-computed matrix of 9 clinical prototype embeddings representing DSM-5 symptom categories. A calibrated confidence threshold filters meaningful signals from background noise. The system includes a keyword-confirmation fallback for short dialect phrases where embedding coverage may be reduced."

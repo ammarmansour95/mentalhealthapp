@@ -18,6 +18,7 @@ class AIInterviewSessionSerializer(serializers.ModelSerializer):
 
 
 class AIReportSerializer(serializers.ModelSerializer):
+    patient_id = serializers.CharField(source='patient.id', read_only=True)
     patient_name = serializers.CharField(source='patient.user.get_full_name', read_only=True)
     patient_email = serializers.CharField(source='patient.user.email', read_only=True)
     reviewed_by_doctor = DoctorProfileSerializer(source='reviewed_by', read_only=True)
@@ -27,7 +28,7 @@ class AIReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = AIReport
         fields = [
-            'id', 'patient', 'patient_name', 'patient_email',
+            'id', 'patient', 'patient_id', 'patient_name', 'patient_email',
             'interview_session', 'assessment_submission',
             'summary_ar_encrypted', 'summary_en_encrypted',
             'primary_indicators', 'preliminary_risk_level', 'preliminary_risk_level_display',

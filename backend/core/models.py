@@ -48,3 +48,35 @@ class AuditLog(TimeStampedModel):
     def __str__(self):
         user_str = self.user.email if self.user else "Anonymous/System"
         return f"[{self.created_at.strftime('%Y-%m-%d %H:%M')}] {self.action} by {user_str}"
+
+
+class Notification(TimeStampedModel):
+    """Multi-role system notification for Patients, Doctors, and Admins."""
+    NOTIFICATION_TYPES = (
+        ('APPOINTMENT_REQUESTED', 'New Appointment Request'),
+        ('APPOINTMENT_CONFIRMED', 'Appointment Confirmed'),
+        ('APPOINTMENT_CANCELLED', 'Appointment Cancelled'),
+        ('SESSION_REMINDER', 'Session Reminder'),
+        ('DOCTOR_APPLICATION_SUBMITTED', 'New Doctor Application'),
+        ('DOCTOR_VERIFIED', 'Doctor License Approved'),
+        ('DOCTOR_REJECTED', 'Doctor License Rejected'),
+        ('SYSTEM_ALERT', 'System Alert'),
+    )
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        db_index=True
+    )
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    notification_type = models.CharField(max_length=64, choices=NOTIFICATION_TYPES, db_index=True)
+    is_read = models.BooleanField(default=False, db_index=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Notification for {self.recipient.email}: {self.title} (Read: {self.is_read})"

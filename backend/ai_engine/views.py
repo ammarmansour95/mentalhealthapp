@@ -177,11 +177,16 @@ class CompleteAIInterviewView(APIView):
             transcript_lines.append(f"{msg.sender}: {msg.content_encrypted}")
         full_transcript = "\n".join(transcript_lines)
 
-        # Find latest completed assessments (PHQ-9, GAD-7)
-        latest_submissions = PatientAssessmentSubmission.objects.filter(patient=patient).order_by('-created_at')
+        # Find recent completed assessments from the last 24 hours (PHQ-9, GAD-7)
+        cutoff_time = timezone.now() - timezone.timedelta(hours=24)
+        recent_submissions = PatientAssessmentSubmission.objects.filter(
+            patient=patient,
+            created_at__gte=cutoff_time
+        ).order_by('-created_at')
+        
         assessment_scores = {}
-        latest_sub = latest_submissions.first()
-        for sub in latest_submissions[:3]:
+        latest_sub = recent_submissions.first()
+        for sub in recent_submissions[:3]:
             assessment_scores[sub.assessment.code] = sub.total_score
 
         # Run AraBART Summarization and Indicator Extraction
@@ -239,9 +244,16 @@ class AIReportListView(generics.ListAPIView):
 
 
 class AIReportDetailView(generics.RetrieveAPIView):
-    queryset = AIReport.objects.all()
     serializer_class = AIReportSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.role == 'PATIENT':
+            return AIReport.objects.filter(patient__user=user)
+        elif user.role in ['DOCTOR', 'ADMIN']:
+            return AIReport.objects.all()
+        return AIReport.objects.none()
 
 
 class DoctorReviewReportView(APIView):
