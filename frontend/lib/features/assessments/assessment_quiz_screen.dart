@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/services/api_service.dart';
 import 'package:frontend/features/ai_interview/ai_interview_screen.dart';
+import 'package:frontend/features/doctors/doctor_list_screen.dart';
 
 class AssessmentQuizScreen extends StatefulWidget {
   final String assessmentCode; // 'PHQ-9' or 'GAD-7'
@@ -81,10 +82,72 @@ class _AssessmentQuizScreenState extends State<AssessmentQuizScreen> {
     }
   }
 
+  Color _getSeverityColor(String severity) {
+    if (severity.contains('شديد') || severity.contains('Severe') || severity.contains('متوسط الشدة')) {
+      return AppTheme.alertRose;
+    } else if (severity.contains('معتدل') || severity.contains('Moderate')) {
+      return const Color(0xFFF59E0B);
+    }
+    return AppTheme.sageGreen;
+  }
+
+  String get _appBarTitle =>
+      _assessmentData?['title_ar'] ?? _assessmentData?['title_en'] ?? widget.assessmentCode;
+
   @override
   Widget build(BuildContext context) {
+    final bool hasUnsavedAnswers = _selectedAnswers.isNotEmpty && _submissionResult == null;
+
+    return PopScope(
+      canPop: !hasUnsavedAnswers,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('تأكيد المغادرة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            content: const Text('هل تريد الخروج؟ سيتم فقدان إجاباتك.', style: TextStyle(fontSize: 14)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('تراجع', style: TextStyle(color: AppTheme.slateMuted, fontWeight: FontWeight.bold)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.alertRose,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('خروج', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+        if (shouldPop == true && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: _buildMainContent(),
+    );
+  }
+
+  Widget _buildMainContent() {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: AppBar(title: Text(_appBarTitle)),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: AppTheme.primaryTeal),
+              SizedBox(height: 16),
+              Text('جاري تحميل أسئلة المقياس المعتمد...', style: TextStyle(color: AppTheme.slateMuted)),
+            ],
+          ),
+        ),
+      );
     }
 
     if (_submissionResult != null) {
@@ -94,161 +157,246 @@ class _AssessmentQuizScreenState extends State<AssessmentQuizScreen> {
     final questions = _assessmentData?['questions'] as List? ?? [];
     if (questions.isEmpty) {
       return Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: Text('لا توجد أسئلة متاحة لهذا المقياس.')),
+        appBar: AppBar(title: Text(_appBarTitle)),
+        body: const Center(child: Text('لا توجد أسئلة متاحة لهذا المقياس حالياً.')),
       );
     }
 
     final currentQ = questions[_currentQuestionIndex];
     final qId = currentQ['id'];
     final options = currentQ['options'] as List? ?? [];
-    final progress = (_currentQuestionIndex + 1) / questions.length;
+    // Shows 11% on Q1 of 9 questions
+    final progress = questions.isEmpty ? 0.0 : ((_currentQuestionIndex + 1) / questions.length);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_assessmentData?['title_ar'] ?? widget.assessmentCode),
+        title: Text(
+          _appBarTitle,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Progress Bar
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'السؤال ${_currentQuestionIndex + 1} من ${questions.length}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryTeal, fontSize: 13),
-                ),
-                Text(
-                  '${(progress * 100).toInt()}%',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.slateMuted, fontSize: 13),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            LinearProgressIndicator(
-              value: progress,
-              backgroundColor: AppTheme.slateLight,
-              color: AppTheme.primaryTeal,
-              minHeight: 6,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            const SizedBox(height: 22),
-
-            // Instruction Prompt
-            const Text(
-              'خلال الأسبوعين الماضيين، كم مرة شعرت بالآتي:',
-              style: TextStyle(fontSize: 12.5, color: AppTheme.slateMuted),
-            ),
-            const SizedBox(height: 10),
-
-            // Question Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  currentQ['text_ar'] ?? currentQ['text_en'],
-                  style: const TextStyle(
-                    fontSize: 16.5,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.slateNavy,
-                    height: 1.4,
+                // Top Progress & Step Header
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceWhite,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppTheme.slateLight),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.primaryTeal.withOpacity(0.12),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.quiz_outlined, color: AppTheme.primaryTeal, size: 16),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'السؤال ${_currentQuestionIndex + 1} من ${questions.length}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.slateNavy, fontSize: 13.5),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryTeal.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${(progress * 100).toInt()}%',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark, fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: AppTheme.slateLight,
+                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryTeal),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
+                const SizedBox(height: 18),
 
-            // Likert Options
-            ...options.map((opt) {
-              final optId = opt['id'];
-              final isSelected = _selectedAnswers[qId] == optId;
+                // Prompt Header
+                const Text(
+                  'خلال الأسبوعين الماضيين، كم مرة تكرر معك هذا الشعور:',
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.slateMuted, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 10),
 
-              return Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                child: InkWell(
-                  onTap: () {
-                    setState(() {
-                      _selectedAnswers[qId] = optId;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryTeal.withOpacity(0.08) : AppTheme.surfaceWhite,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isSelected ? AppTheme.primaryTeal : AppTheme.slateLight,
-                        width: isSelected ? 1.8 : 1,
+                // Question Card
+                Card(
+                  elevation: 0,
+                  color: AppTheme.surfaceWhite,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: const BorderSide(color: AppTheme.slateLight, width: 1.2),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(22.0),
+                    child: Text(
+                      currentQ['text_ar'] ?? currentQ['text_en'],
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.slateNavy,
+                        height: 1.5,
                       ),
                     ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
-                          color: isSelected ? AppTheme.primaryTeal : Colors.grey,
-                          size: 20,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Likert Options
+                ...options.map((opt) {
+                  final optId = opt['id'];
+                  final isSelected = _selectedAnswers[qId] == optId;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedAnswers[qId] = optId;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(16),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primaryTeal.withOpacity(0.08) : AppTheme.surfaceWhite,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primaryTeal : AppTheme.slateLight,
+                            width: isSelected ? 2.0 : 1.0,
+                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: AppTheme.primaryTeal.withOpacity(0.12),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
                         ),
-                        const SizedBox(width: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+                              color: isSelected ? AppTheme.primaryTeal : Colors.grey.shade400,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Text(
+                                opt['label_ar'] ?? opt['label_en'],
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isSelected ? AppTheme.primaryTealDark : AppTheme.slateNavy,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+                const SizedBox(height: 22),
+
+                // Navigation Buttons (Clean Typography)
+                Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Row(
+                    children: [
+                      // Back Button (Right side in Arabic RTL)
+                      if (_currentQuestionIndex > 0) ...[
                         Expanded(
-                          child: Text(
-                            opt['label_ar'] ?? opt['label_en'],
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? AppTheme.primaryTealDark : AppTheme.slateNavy,
+                          flex: 1,
+                          child: OutlinedButton(
+                            onPressed: () => setState(() => _currentQuestionIndex--),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                              foregroundColor: AppTheme.slateNavy,
+                              side: const BorderSide(color: AppTheme.slateLight, width: 1.4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                'السابق',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
                             ),
                           ),
                         ),
+                        const SizedBox(width: 12),
                       ],
-                    ),
-                  ),
-                ),
-              );
-            }),
-            const SizedBox(height: 20),
 
-            // Navigation Buttons
-            Row(
-              children: [
-                if (_currentQuestionIndex > 0)
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => setState(() => _currentQuestionIndex--),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      // Next / Submit Button (Left side in Arabic RTL)
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton(
+                          onPressed: _selectedAnswers[qId] == null
+                              ? null
+                              : () {
+                                  if (_currentQuestionIndex < questions.length - 1) {
+                                    setState(() => _currentQuestionIndex++);
+                                  } else {
+                                    _submitAssessment();
+                                  }
+                                },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryTeal,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: AppTheme.slateLight,
+                            disabledForegroundColor: AppTheme.slateMuted,
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: _isSubmitting
+                              ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : Center(
+                                  child: Text(
+                                    _currentQuestionIndex == questions.length - 1 ? 'إرسال وعرض التقرير' : 'السؤال التالي',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                                  ),
+                                ),
+                        ),
                       ),
-                      child: const Text('السابق'),
-                    ),
-                  ),
-                if (_currentQuestionIndex > 0) const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _selectedAnswers[qId] == null
-                        ? null
-                        : () {
-                            if (_currentQuestionIndex < questions.length - 1) {
-                              setState(() => _currentQuestionIndex++);
-                            } else {
-                              _submitAssessment();
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    ),
-                    child: _isSubmitting
-                        ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(_currentQuestionIndex == questions.length - 1 ? 'إرسال وعرض النتيجة' : 'التالي'),
+                    ],
                   ),
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -258,75 +406,124 @@ class _AssessmentQuizScreenState extends State<AssessmentQuizScreen> {
     final score = _submissionResult?['total_score'] ?? 0;
     final severity = _submissionResult?['severity_level_display'] ?? '';
     final interp = _submissionResult?['interpretation_ar'] ?? '';
+    final sevColor = _getSeverityColor(severity);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('نتيجة التقييم السريري')),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(22),
+      appBar: AppBar(
+        title: Text('نتائج ${_appBarTitle}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryTeal.withOpacity(0.12),
-                        shape: BoxShape.circle,
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Top Severity Thermometer Card
+                Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surfaceWhite,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: sevColor.withOpacity(0.35), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: sevColor.withOpacity(0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
-                      child: const Icon(Icons.check_circle_outline, size: 42, color: AppTheme.primaryTeal),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      'مجموع الدرجات: $score',
-                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: AppTheme.oceanAzure.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(16),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: sevColor.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.assessment_rounded, color: sevColor, size: 36),
                       ),
-                      child: Text(
-                        'مستوى الشدة: $severity',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.oceanAzure),
+                      const SizedBox(height: 16),
+                      Text(
+                        'مجموع النقاط: $score',
+                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      interp,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 13.5, color: AppTheme.slateMuted, height: 1.45),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(46),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: sevColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Text(
+                          severity,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: sevColor),
+                        ),
                       ),
-                      onPressed: () {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const AIInterviewScreen()),
-                        );
-                      },
-                      icon: const Icon(Icons.psychology, size: 20),
-                      label: const Text('المتابعة إلى المقابلة الذكية (AraBART AI)'),
-                    ),
-                    const SizedBox(height: 10),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('العودة للرئيسية', style: TextStyle(color: AppTheme.slateMuted)),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 20),
+
+                // Clinical Interpretation Card
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.psychology_outlined, color: AppTheme.primaryTeal, size: 20),
+                            SizedBox(width: 8),
+                            Text('التفسير السريري والتوصيات:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ],
+                        ),
+                        const Divider(height: 20),
+                        Text(
+                          interp.isNotEmpty ? interp : 'بناءً على إجاباتك، يوصى بمتابعة الحالة والتحدث مع أخصائي نفسي معتمد.',
+                          style: const TextStyle(fontSize: 13.5, height: 1.6, color: AppTheme.slateNavy),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Referral Actions
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryTeal,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const DoctorListScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.calendar_month, color: Colors.white, size: 18),
+                  label: const Text('حجز استشارة مع طبيب نفسي معتمد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AIInterviewScreen()),
+                    );
+                  },
+                  icon: const Icon(Icons.chat_outlined, size: 18),
+                  label: const Text('بدء تقييم سريري ذكي معمق مع المساعد الإكلينيكي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ],
             ),
           ),
         ),

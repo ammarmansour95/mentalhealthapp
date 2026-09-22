@@ -33,6 +33,59 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    window.requestDeviceNotificationPermission = async function() {
+      if (!("Notification" in window)) {
+        return "unsupported";
+      }
+      try {
+        const permission = await Notification.requestPermission();
+        return permission;
+      } catch (e) {
+        return "denied";
+      }
+    };
+
+    window.showDeviceNotification = function(title, body, tag) {
+      if (!("Notification" in window)) return false;
+      if (Notification.permission === "granted") {
+        try {
+          const notif = new Notification(title, {
+            body: body || "",
+            icon: "favicon.png",
+            tag: tag || undefined,
+            requireInteraction: tag === "crisis",
+          });
+          notif.onclick = function() {
+            window.focus();
+            this.close();
+          };
+          // Web Audio chime
+          try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) {
+              const audioCtx = new AudioContext();
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = tag === "crisis" ? "sawtooth" : "sine";
+              osc.frequency.setValueAtTime(tag === "crisis" ? 880 : 587.33, audioCtx.currentTime);
+              gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.start();
+              osc.stop(audioCtx.currentTime + 0.6);
+            }
+          } catch(e) {}
+          return true;
+        } catch (e) {
+          console.error("Device notification failed:", e);
+          return false;
+        }
+      }
+      return false;
+    };
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

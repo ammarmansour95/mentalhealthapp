@@ -752,6 +752,48 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       ),
                       const SizedBox(height: 18),
 
+                      // Emergency Crisis Alert Banner for Admins
+                      if (((_metrics?['clinical_and_ai']?['risk_breakdown']?['high'] as int?) ?? 0) > 0) ...[
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppTheme.alertRose.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppTheme.alertRose.withOpacity(0.4), width: 1.5),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.alertRose.withOpacity(0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.emergency_rounded, color: AppTheme.alertRose, size: 22),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '🚨 تنبيه سلامة ورقابة سريرية (${_metrics!['clinical_and_ai']['risk_breakdown']['high']} حالات طوارئ / إيذاء نفس)',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.alertRose),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      'تم رصد إشارات خطر إيذاء نفس أو رغبة بالانتحار، وتم تفعيل بروتوكول التدخل وإرسال الإشعارات للأطباء المعنيين.',
+                                      style: TextStyle(fontSize: 11, color: AppTheme.slateNavy),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
                       // Segmented Tab Selector
                       Container(
                         padding: const EdgeInsets.all(4),
@@ -939,10 +981,26 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               separatorBuilder: (_, __) => const Divider(height: 1),
                               itemBuilder: (context, index) {
                                 final log = _auditLogs[index];
+                                final isCrisis = log['action'] == 'CRISIS_SAFETY_PROTOCOL_ACTIVATED';
                                 return ListTile(
-                                  leading: const Icon(Icons.security, size: 18, color: AppTheme.primaryTeal),
-                                  title: Text(log['action_display'] ?? log['action'], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  subtitle: Text('بواسطة: ${log['user']} | ${log['created_at']?.toString().substring(0, 16)}', style: const TextStyle(fontSize: 10)),
+                                  tileColor: isCrisis ? AppTheme.alertRose.withOpacity(0.08) : null,
+                                  leading: Icon(
+                                    isCrisis ? Icons.emergency_rounded : Icons.security,
+                                    size: 20,
+                                    color: isCrisis ? AppTheme.alertRose : AppTheme.primaryTeal,
+                                  ),
+                                  title: Text(
+                                    log['action_display'] ?? log['action'],
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: isCrisis ? AppTheme.alertRose : AppTheme.slateNavy,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    'بواسطة: ${log['user']} | ${log['created_at']?.toString().substring(0, 16)}',
+                                    style: const TextStyle(fontSize: 10),
+                                  ),
                                 );
                               },
                             ),

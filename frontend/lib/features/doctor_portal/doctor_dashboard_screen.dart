@@ -7,6 +7,8 @@ import 'package:frontend/core/providers/auth_provider.dart';
 import 'package:frontend/core/services/api_service.dart';
 import 'package:frontend/core/widgets/notification_bell_button.dart';
 import 'package:frontend/features/auth/login_screen.dart';
+import 'package:frontend/features/messaging/chat_screen.dart';
+import 'package:frontend/features/messaging/conversations_list_screen.dart';
 
 class DoctorDashboardScreen extends StatefulWidget {
   const DoctorDashboardScreen({super.key});
@@ -57,6 +59,27 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     {'day_of_week': 5, 'name': 'السبت', 'name_en': 'Saturday'},
   ];
 
+  int _compareAppointments(dynamic a, dynamic b) {
+    final statusA = a['status'] ?? '';
+    final statusB = b['status'] ?? '';
+    final bool isActiveA = statusA == 'CONFIRMED' || statusA == 'PENDING';
+    final bool isActiveB = statusB == 'CONFIRMED' || statusB == 'PENDING';
+
+    if (isActiveA && !isActiveB) return -1;
+    if (!isActiveA && isActiveB) return 1;
+
+    final dateStrA = '${a['appointment_date']} ${a['start_time'] ?? '00:00'}';
+    final dateStrB = '${b['appointment_date']} ${b['start_time'] ?? '00:00'}';
+    final dtA = DateTime.tryParse(dateStrA) ?? DateTime(1970);
+    final dtB = DateTime.tryParse(dateStrB) ?? DateTime(1970);
+
+    if (isActiveA && isActiveB) {
+      return dtA.compareTo(dtB);
+    } else {
+      return dtB.compareTo(dtA);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -89,13 +112,16 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
         if (isVerified) {
           try {
             final appRes = await ApiService.get('/appointments/');
+            List<dynamic> rawApps = [];
             if (appRes is List) {
-              _appointments = appRes;
+              rawApps = List<dynamic>.from(appRes);
             } else if (appRes is Map && appRes.containsKey('results')) {
-              _appointments = appRes['results'] ?? [];
+              rawApps = List<dynamic>.from(appRes['results'] ?? []);
             } else if (appRes is Map && appRes.containsKey('appointments')) {
-              _appointments = appRes['appointments'] ?? [];
+              rawApps = List<dynamic>.from(appRes['appointments'] ?? []);
             }
+            rawApps.sort(_compareAppointments);
+            _appointments = rawApps;
           } catch (_) {
             _appointments = [];
           }
@@ -774,7 +800,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('ملخص الذكاء الاصطناعي (AraBART):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.primaryTealDark)),
+                      const Text('ملخص المساعد الذكي:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.primaryTealDark)),
                       const SizedBox(height: 4),
                       Text(report['summary_ar_encrypted'] ?? '', style: const TextStyle(fontSize: 12.5, height: 1.4)),
                     ],
@@ -862,6 +888,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     final auth = Provider.of<AuthProvider>(context);
     final doctorName = auth.user?['first_name'] ?? 'دكتور';
     final isVerified = _doctorProfile?['is_verified'] == true;
+    final highRiskReports = _reports.where((r) => r['preliminary_risk_level'] == 'HIGH' || r['safety_warning_triggered'] == true).toList();
 
     return Scaffold(
       body: SafeArea(
@@ -916,6 +943,22 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           ),
                           Row(
                             children: [
+                              InkWell(
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const ConversationsListScreen()),
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(9),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.oceanAzure.withOpacity(0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.chat_outlined, size: 18, color: AppTheme.oceanAzure),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
                               NotificationBellButton(onOpened: _fetchDoctorData),
                               const SizedBox(width: 8),
                               InkWell(
@@ -958,6 +1001,12 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                       if (!isVerified)
                         _buildVerificationGate()
                       else ...[
+                        // Emergency Crisis Alert Banner (If Any Patient in High Risk / Suicide Ideation)
+                        if (highRiskReports.isNotEmpty) ...[
+                          _buildEmergencyCrisisBanner(highRiskReports),
+                          const SizedBox(height: 16),
+                        ],
+
                         // Segmented Tab Selector for Clean Navigation
                         Container(
                           padding: const EdgeInsets.all(4),
@@ -984,6 +1033,84 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   ),
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _buildEmergencyCrisisBanner(List<dynamic> urgentReports) {
+    final firstRep = urgentReports.first as Map<String, dynamic>;
+    final pName = firstRep['patient_name'] ?? 'مريض مسجل';
+    final pEmail = (firstRep['patient_email'] ?? '').toString();
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.alertRose.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.alertRose.withOpacity(0.4), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.alertRose.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.emergency_rounded, color: AppTheme.alertRose, size: 22),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '🚨 تنبيه طوارئ سريرية حرجة (${urgentReports.length} حالات في خطر مرتفع)',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.alertRose),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'تم رصد إشارات خطر إيذاء نفس أو رغبة بالانتحار للمريض: $pName ${pEmail.isNotEmpty ? "($pEmail)" : ""}',
+                      style: const TextStyle(fontSize: 11.5, color: AppTheme.slateNavy),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.alertRose,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  setState(() => _selectedDoctorTab = 1);
+                },
+                icon: const Icon(Icons.psychology_outlined, size: 16),
+                label: const Text('الانتقال للتقارير السريرية 👁️', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.alertRose,
+                  side: BorderSide(color: AppTheme.alertRose.withOpacity(0.4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => _openReportReviewModal(firstRep),
+                icon: const Icon(Icons.rate_review_outlined, size: 16),
+                label: const Text('مراجعة فورية للحالة', style: TextStyle(fontSize: 11)),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1348,6 +1475,36 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                             ),
                             onPressed: () => _updateAppointmentStatus(app['id'], 'CONFIRMED'),
                             child: const Text('قبول وتأكيد الموعد', style: TextStyle(fontSize: 11.5)),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (isConfirmed || isCompleted) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryTeal,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.chat_bubble_outline, size: 14),
+                            label: const Text('محادثة المريض', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatScreen(
+                                    otherProfileId: app['patient']?.toString() ?? app['patient_id']?.toString(),
+                                    otherUserName: app['patient_name'] ?? 'المريض',
+                                    otherUserRole: 'مريض',
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),
@@ -1830,7 +1987,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Text(
-                                                  'تقرير الذكاء الاصطناعي (AraBERT)',
+                                                  'تقرير التقييم الإكلينيكي الذكي',
                                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slateNavy),
                                                 ),
                                               ],

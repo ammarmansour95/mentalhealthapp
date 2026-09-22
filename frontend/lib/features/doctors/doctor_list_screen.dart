@@ -236,7 +236,7 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
                     children: [
                       if (isPushedRoute) ...[
                         IconButton(
-                          icon: const Icon(Icons.arrow_back, color: AppTheme.slateNavy),
+                          icon: const Icon(Icons.arrow_forward_rounded, color: AppTheme.slateNavy),
                           onPressed: () => Navigator.pop(context),
                         ),
                         const SizedBox(width: 4),

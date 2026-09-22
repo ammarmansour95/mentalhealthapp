@@ -1,0 +1,55 @@
+{
+  "model_name": "UBC-NLP/MARBERTv2",
+  "dataset": "Ahmed-Selem/Shifaa_Arabic_Mental_Health_Consultations",
+  "total_consultations": 35648,
+  "train_split": 0.8,
+  "test_split": 0.2,
+  "max_len": 256,
+  "num_classes": 8,
+  "best_epoch": 3,
+  "best_metrics": {
+    "top1_accuracy": 0.6818,
+    "top2_comorbidity_accuracy": 0.8789,
+    "final_train_loss": 0.4591
+  },
+  "training_history": [
+    {
+      "epoch": 1,
+      "top1_accuracy": 0.6522,
+      "top2_accuracy": 0.8532,
+      "duration_seconds": 1508.6
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.8230,
+      "top1_accuracy": 0.6752,
+      "top2_accuracy": 0.8667,
+      "duration_seconds": 1516.8
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.5924,
+      "top1_accuracy": 0.6818,
+      "top2_accuracy": 0.8789,
+      "duration_seconds": 1516.5,
+      "is_best_checkpoint": true
+    },
+    {
+      "epoch": 4,
+      "train_loss": 0.4591,
+      "top1_accuracy": 0.6798,
+      "top2_accuracy": 0.8749,
+      "duration_seconds": 1516.8
+    }
+  ],
+  "labels": [
+    "ANXIETY",
+    "BURNOUT_STRESS",
+    "DEPRESSION",
+    "FAMILY_CONFLICTS",
+    "OBSESSIONS_OCD",
+    "PANIC",
+    "SLEEP_DISRUPTION",
+    "TRAUMA_PTSD"
+  ]
+}

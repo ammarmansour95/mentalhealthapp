@@ -133,10 +133,12 @@ class MentalHealthPlatformIntegrationTests(TestCase):
         self.doctor_profile.is_verified = True
         self.doctor_profile.save()
 
+        from django.utils import timezone
         self.client.force_authenticate(user=self.patient_user)
+        future_date = (timezone.now() + timezone.timedelta(days=2)).strftime('%Y-%m-%d')
         booking_payload = {
             'doctor_id': str(self.doctor_profile.id),
-            'appointment_date': '2026-09-01',
+            'appointment_date': future_date,
             'start_time': '10:00:00',
             'end_time': '10:45:00',
             'patient_notes': 'Need consultation for anxiety'
@@ -153,7 +155,7 @@ class MentalHealthPlatformIntegrationTests(TestCase):
         confirm_res = self.client.patch(f'/api/appointments/{appt_id}/status/', {'status': 'CONFIRMED'})
         self.assertEqual(confirm_res.status_code, status.HTTP_200_OK)
         # 3. Verify booked-slots endpoint returns '10:00:00'
-        slots_res = self.client.get(f'/api/doctors/{self.doctor_profile.id}/booked-slots/?date=2026-09-01')
+        slots_res = self.client.get(f'/api/doctors/{self.doctor_profile.id}/booked-slots/?date={future_date}')
         self.assertEqual(slots_res.status_code, status.HTTP_200_OK)
         self.assertIn('10:00:00', slots_res.data['booked_slots'])
 

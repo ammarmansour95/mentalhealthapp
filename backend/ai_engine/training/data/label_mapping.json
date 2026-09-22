@@ -1,0 +1,128 @@
+{
+  "categories": [
+    "ANXIETY",
+    "BURNOUT_STRESS",
+    "DEPRESSION",
+    "FAMILY_CONFLICTS",
+    "OBSESSIONS_OCD",
+    "PANIC",
+    "SLEEP_DISRUPTION",
+    "TRAUMA_PTSD"
+  ],
+  "label2id": {
+    "ANXIETY": 0,
+    "BURNOUT_STRESS": 1,
+    "DEPRESSION": 2,
+    "FAMILY_CONFLICTS": 3,
+    "OBSESSIONS_OCD": 4,
+    "PANIC": 5,
+    "SLEEP_DISRUPTION": 6,
+    "TRAUMA_PTSD": 7
+  },
+  "id2label": {
+    "0": "ANXIETY",
+    "1": "BURNOUT_STRESS",
+    "2": "DEPRESSION",
+    "3": "FAMILY_CONFLICTS",
+    "4": "OBSESSIONS_OCD",
+    "5": "PANIC",
+    "6": "SLEEP_DISRUPTION",
+    "7": "TRAUMA_PTSD"
+  },
+  "category_details": {
+    "DEPRESSION": {
+      "keywords": [
+        "اكتئاب",
+        "حزن",
+        "كآبة",
+        "يأس",
+        "فقدان الشغف",
+        "إحباط"
+      ],
+      "label_ar": "أعراض المزاج الاكتئابي والحزن (Depressive Symptoms)",
+      "specialty": "CLINICAL_PSYCHOLOGY"
+    },
+    "ANXIETY": {
+      "keywords": [
+        "قلق",
+        "توتر",
+        "تفكير زائد",
+        "خوف مستمر",
+        "عصبية",
+        "تشتت"
+      ],
+      "label_ar": "أعراض القلق العام والتوتر (Generalized Anxiety)",
+      "specialty": "CBT_SPECIALIST"
+    },
+    "PANIC": {
+      "keywords": [
+        "مخاوف",
+        "هلع",
+        "رهاب",
+        "نوبة هلع",
+        "فزع",
+        "خفقان"
+      ],
+      "label_ar": "نوبات الهلع والمخاوف والرهاب (Panic & Phobia)",
+      "specialty": "PSYCHIATRY"
+    },
+    "SLEEP_DISRUPTION": {
+      "keywords": [
+        "نوم",
+        "أرق",
+        "كوابيس",
+        "سهر",
+        "استيقاظ متكرر",
+        "أحلام"
+      ],
+      "label_ar": "اضطرابات جودة النوم والأرق (Sleep Disruption)",
+      "specialty": "CLINICAL_PSYCHOLOGY"
+    },
+    "OBSESSIONS_OCD": {
+      "keywords": [
+        "وسواس",
+        "وساوس",
+        "قهري",
+        "شكوك",
+        "أفكار ملحة"
+      ],
+      "label_ar": "الوسواس القهري والأفكار المتسلطة (OCD & Obsessions)",
+      "specialty": "PSYCHIATRY"
+    },
+    "TRAUMA_PTSD": {
+      "keywords": [
+        "صدمة",
+        "حادث",
+        "فاجعة",
+        "كرب",
+        "ذكريات مؤلمة"
+      ],
+      "label_ar": "مؤشرات الصدمة النفسية والذكريات الضاغطة (Trauma & PTSD)",
+      "specialty": "TRAUMA_PTSD"
+    },
+    "FAMILY_CONFLICTS": {
+      "keywords": [
+        "أسرة",
+        "عائلة",
+        "زوج",
+        "زوجة",
+        "طلاق",
+        "خلافات أسرية"
+      ],
+      "label_ar": "الضغوطات والخلافات الأسرية (Family Dynamics)",
+      "specialty": "CLINICAL_PSYCHOLOGY"
+    },
+    "BURNOUT_STRESS": {
+      "keywords": [
+        "إجهاد",
+        "ضغط عمل",
+        "دراسة",
+        "احتراق",
+        "إنهاك",
+        "تطوير الذات"
+      ],
+      "label_ar": "الإجهاد النفسي والضغوط الحياتية (Burnout & Stress)",
+      "specialty": "CBT_SPECIALIST"
+    }
+  }
+}

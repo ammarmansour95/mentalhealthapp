@@ -67,6 +67,8 @@ class AuthProvider extends ChangeNotifier {
     required String firstName,
     required String lastName,
     required String role,
+    required String phoneNumber,
+    required int age,
     String? specialty,
   }) async {
     _errorMessage = null;
@@ -78,6 +80,8 @@ class AuthProvider extends ChangeNotifier {
         'first_name': firstName.trim(),
         'last_name': lastName.trim(),
         'role': role,
+        'phone_number': phoneNumber.trim(),
+        'age': age,
       };
       if (specialty != null && specialty.isNotEmpty) {
         payload['specialty'] = specialty;

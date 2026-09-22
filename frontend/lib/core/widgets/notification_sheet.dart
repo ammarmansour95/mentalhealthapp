@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/services/api_service.dart';
 
@@ -82,6 +83,8 @@ class _NotificationSheetState extends State<NotificationSheet> {
 
   IconData _getIconForType(String type) {
     switch (type) {
+      case 'CRISIS_ALERT':
+        return Icons.emergency_rounded;
       case 'APPOINTMENT_REQUESTED':
         return Icons.calendar_today_outlined;
       case 'APPOINTMENT_CONFIRMED':
@@ -101,6 +104,8 @@ class _NotificationSheetState extends State<NotificationSheet> {
 
   Color _getColorForType(String type) {
     switch (type) {
+      case 'CRISIS_ALERT':
+        return AppTheme.alertRose;
       case 'APPOINTMENT_CONFIRMED':
       case 'DOCTOR_VERIFIED':
         return AppTheme.sageGreen;
@@ -115,6 +120,190 @@ class _NotificationSheetState extends State<NotificationSheet> {
       default:
         return AppTheme.slateNavy;
     }
+  }
+
+  Widget _buildProtocolCheckItem(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.check_circle_outline, size: 14, color: AppTheme.alertRose),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(text, style: const TextStyle(fontSize: 11, color: AppTheme.slateNavy)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCrisisDetailDialog(BuildContext context, Map<String, dynamic> notification) {
+    final meta = (notification['metadata'] as Map<String, dynamic>?) ?? {};
+    final patientName = meta['patient_name'] ?? 'مريض مسجل';
+    final patientPhone = (meta['patient_phone'] ?? '').toString();
+    final triggerText = meta['trigger_text'] ?? notification['message'] ?? '';
+    final rawDate = notification['created_at'] as String? ?? '';
+    final formattedDate = rawDate.contains('T')
+        ? rawDate.split('T').first + ' (' + rawDate.split('T').last.substring(0, 5) + ')'
+        : rawDate;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+        contentPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppTheme.alertRose.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.emergency_rounded, color: AppTheme.alertRose, size: 24),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                '🚨 بلاغ طوارئ سريرية حرجة',
+                style: TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.alertRose,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.alertRose.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.alertRose.withOpacity(0.25)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.person, size: 16, color: AppTheme.slateNavy),
+                        const SizedBox(width: 6),
+                        Text(
+                          'المريض: $patientName',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slateNavy),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone, size: 16, color: AppTheme.primaryTeal),
+                        const SizedBox(width: 6),
+                        Text(
+                          'رقم الهاتف: ${patientPhone.isNotEmpty ? patientPhone : "غير مسجل"}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryTeal),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time, size: 16, color: AppTheme.slateMuted),
+                        const SizedBox(width: 6),
+                        Text(
+                          'وقت البلاغ: $formattedDate',
+                          style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'العبارة التي أطلقت إشارة الخطر (Trigger Signal):',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.slateNavy),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.slateLight,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                ),
+                child: Text(
+                  '« $triggerText »',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.alertRose,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'البروتوكول السريري المعتمد للتدخل العاجل:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.slateNavy),
+              ),
+              const SizedBox(height: 6),
+              _buildProtocolCheckItem('1. الاتصال الفوري بالمريض أو أرقام الطوارئ المعتمدة.'),
+              _buildProtocolCheckItem('2. مراجعة التقرير السريري الأولي المولد وتاريخ المقاييس.'),
+              _buildProtocolCheckItem('3. تحويل الحالة لطبيب نفسي مناوب أو قسم طوارئ الصحة النفسية.'),
+              const SizedBox(height: 16),
+              if (patientPhone.isNotEmpty && patientPhone != 'غير مسجل') ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.alertRose,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      final uri = Uri.parse('tel:$patientPhone');
+                      try {
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri);
+                        }
+                      } catch (_) {}
+                    },
+                    icon: const Icon(Icons.call, size: 18),
+                    label: Text(
+                      'الاتصال الهاتفي بالمريض ($patientPhone)',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('إغلاق النافذة', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -216,17 +405,26 @@ class _NotificationSheetState extends State<NotificationSheet> {
                                 ? rawDate.split('T').first + ' (' + rawDate.split('T').last.substring(0, 5) + ')'
                                 : rawDate;
 
+                            final isCrisis = nType == 'CRISIS_ALERT';
+
                             return InkWell(
-                              onTap: isRead ? null : () => _markAsRead(n['id'], index),
+                              onTap: () {
+                                if (!isRead) _markAsRead(n['id'], index);
+                                if (isCrisis) _showCrisisDetailDialog(context, n);
+                              },
                               borderRadius: BorderRadius.circular(16),
                               child: Container(
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
-                                  color: isRead ? AppTheme.surfaceWhite : color.withOpacity(0.04),
+                                  color: isCrisis
+                                      ? AppTheme.alertRose.withOpacity(isRead ? 0.04 : 0.09)
+                                      : (isRead ? AppTheme.surfaceWhite : color.withOpacity(0.04)),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: isRead ? Colors.grey.withOpacity(0.15) : color.withOpacity(0.35),
-                                    width: isRead ? 1 : 1.5,
+                                    color: isCrisis
+                                        ? AppTheme.alertRose.withOpacity(isRead ? 0.3 : 0.6)
+                                        : (isRead ? Colors.grey.withOpacity(0.15) : color.withOpacity(0.35)),
+                                    width: isCrisis ? 1.8 : (isRead ? 1 : 1.5),
                                   ),
                                 ),
                                 child: Row(
@@ -254,7 +452,7 @@ class _NotificationSheetState extends State<NotificationSheet> {
                                                   style: TextStyle(
                                                     fontWeight: isRead ? FontWeight.bold : FontWeight.w900,
                                                     fontSize: 13.5,
-                                                    color: AppTheme.slateNavy,
+                                                    color: isCrisis ? AppTheme.alertRose : AppTheme.slateNavy,
                                                   ),
                                                 ),
                                               ),
@@ -269,7 +467,28 @@ class _NotificationSheetState extends State<NotificationSheet> {
                                                 ),
                                             ],
                                           ),
-                                          const SizedBox(height: 4),
+                                          if (isCrisis) ...[
+                                            const SizedBox(height: 5),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.alertRose.withOpacity(0.12),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.warning_amber_rounded, size: 12, color: AppTheme.alertRose),
+                                                  SizedBox(width: 4),
+                                                  Text(
+                                                    '🚨 تنبيه حرج: اضغط لعرض هاتف المريض وبيانات التدخل',
+                                                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.alertRose),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(height: 5),
                                           Text(
                                             n['message'] ?? '',
                                             style: const TextStyle(fontSize: 12, height: 1.4, color: AppTheme.slateNavy),
@@ -282,11 +501,16 @@ class _NotificationSheetState extends State<NotificationSheet> {
                                                 formattedDate,
                                                 style: const TextStyle(fontSize: 10.5, color: AppTheme.slateMuted),
                                               ),
-                                              if (!isRead)
-                                                Text(
-                                                  'اضغط للتعليم كمقروء',
-                                                  style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold),
+                                              Text(
+                                                isCrisis
+                                                    ? 'عرض تفاصيل الطوارئ 👁️'
+                                                    : (!isRead ? 'اضغط للتعليم كمقروء' : ''),
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: isCrisis ? AppTheme.alertRose : color,
+                                                  fontWeight: FontWeight.bold,
                                                 ),
+                                              ),
                                             ],
                                           ),
                                         ],

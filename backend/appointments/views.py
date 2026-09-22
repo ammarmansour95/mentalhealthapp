@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -16,11 +17,11 @@ class MyAppointmentsListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == 'PATIENT' and hasattr(user, 'patient_profile'):
-            return Appointment.objects.filter(patient=user.patient_profile)
+            return Appointment.objects.filter(patient=user.patient_profile).order_by('-appointment_date', '-start_time')
         elif user.role == 'DOCTOR' and hasattr(user, 'doctor_profile'):
-            return Appointment.objects.filter(doctor=user.doctor_profile)
+            return Appointment.objects.filter(doctor=user.doctor_profile).order_by('-appointment_date', '-start_time')
         elif user.role == 'ADMIN':
-            return Appointment.objects.all()
+            return Appointment.objects.all().order_by('-appointment_date', '-start_time')
         return Appointment.objects.none()
 
 
@@ -28,11 +29,12 @@ class BookAppointmentView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsPatient]
 
     def post(self, request):
+        patient = request.user.patient_profile
         serializer = BookAppointmentSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         data = serializer.validated_data
 
-        patient = request.user.patient_profile
         try:
             doctor = DoctorProfile.objects.get(id=data['doctor_id'], is_verified=True)
         except DoctorProfile.DoesNotExist:
@@ -41,6 +43,13 @@ class BookAppointmentView(APIView):
         appointment_date = data['appointment_date']
         start_time = data['start_time']
         end_time = data.get('end_time')
+
+        # Prevent booking in the past
+        if appointment_date < timezone.now().date():
+            return Response({
+                'success': False,
+                'message': 'لا يمكن حجز موعد في تاريخ سابق.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         # 1. Enforce doctor availability schedule
         active_avails = doctor.availabilities.filter(is_active=True)

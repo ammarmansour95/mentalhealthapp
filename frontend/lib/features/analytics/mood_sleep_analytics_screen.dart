@@ -98,6 +98,18 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
     return 'ممتاز ومرتاح';
   }
 
+  String _getAnxietyLabel(int level) {
+    switch (level) {
+      case 2:
+        return 'معتدل';
+      case 3:
+        return 'مرتفع';
+      case 1:
+      default:
+        return 'منخفض';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -178,16 +190,16 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
                       ),
                       const SizedBox(height: 18),
 
+                      // Fix 9: Daily Check-In Logger placed ABOVE charts so first-time users can log immediately
+                      _buildCheckInCard(),
+                      const SizedBox(height: 18),
+
                       // Mood Line Chart
                       _buildMoodLineChart(),
                       const SizedBox(height: 18),
 
                       // Sleep Hours Bar Chart
                       _buildSleepBarChart(),
-                      const SizedBox(height: 18),
-
-                      // Daily Check-In Logger
-                      _buildCheckInCard(),
                       const SizedBox(height: 20),
 
                       // Past Check-In History
@@ -204,6 +216,7 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
                         ..._records.map((rec) {
                           final moodVal = num.tryParse(rec['mood_score']?.toString() ?? '5')?.toInt() ?? 5;
                           final sleepVal = num.tryParse(rec['sleep_hours']?.toString() ?? '7')?.toDouble() ?? 7.0;
+                          final logDateStr = rec['log_date']?.toString() ?? rec['created_at']?.toString().substring(0, 10) ?? '';
                           return Card(
                             margin: const EdgeInsets.only(bottom: 10),
                             child: ListTile(
@@ -220,7 +233,7 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const SizedBox(height: 2),
-                                  Text('التاريخ: ${rec['created_at']?.toString().substring(0, 10)}', style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted)),
+                                  Text('التاريخ: $logDateStr', style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted)),
                                   if (rec['notes_encrypted'] != null && rec['notes_encrypted'].toString().isNotEmpty) ...[
                                     const SizedBox(height: 2),
                                     Text('ملاحظة: ${rec['notes_encrypted']}', style: const TextStyle(fontSize: 11.5, color: AppTheme.slateNavy)),
@@ -251,9 +264,9 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
         children: [
           Text(iconOrEmoji, style: const TextStyle(fontSize: 20)),
           const SizedBox(height: 6),
-          Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color)),
+          Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: color)),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(fontSize: 10.5, color: AppTheme.slateMuted)),
+          Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted)),
         ],
       ),
     );
@@ -275,22 +288,22 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
           children: [
             const Row(
               children: [
-                Icon(Icons.timeline, color: AppTheme.primaryTeal, size: 20),
+                Icon(Icons.trending_up, color: AppTheme.primaryTeal, size: 20),
                 SizedBox(width: 8),
-                Text('منحنى تقلب المزاج (1 - 10)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Text('منحنى تطور المزاج اليومي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
               ],
             ),
             const SizedBox(height: 4),
-            const Text('مؤشر استقرار حالتك المزاجية عبر الأيام', style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted)),
+            const Text('مؤشر من 1 (منخفض جداً) إلى 10 (ممتاز ومرتاح)', style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted)),
             const SizedBox(height: 16),
             if (spots.isEmpty)
               const SizedBox(
                 height: 140,
-                child: Center(child: Text('سجل بياناتك للبدء برسم منحنى المزاج', style: TextStyle(color: AppTheme.slateMuted, fontSize: 12))),
+                child: Center(child: Text('لا توجد بيانات كافية لرسم المنحنى بعد', style: TextStyle(color: AppTheme.slateMuted, fontSize: 12))),
               )
             else
               SizedBox(
-                height: 180,
+                height: 160,
                 child: LineChart(
                   LineChartData(
                     gridData: FlGridData(
@@ -309,7 +322,8 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
                           getTitlesWidget: (val, _) {
                             final idx = val.toInt();
                             if (idx >= 0 && idx < chronological.length) {
-                              final dateStr = chronological[idx]['created_at']?.toString().substring(5, 10) ?? '';
+                              final fullDate = chronological[idx]['log_date']?.toString() ?? chronological[idx]['created_at']?.toString() ?? '';
+                              final dateStr = fullDate.length >= 10 ? fullDate.substring(5, 10) : fullDate;
                               return Padding(
                                 padding: const EdgeInsets.only(top: 6),
                                 child: Text(dateStr, style: const TextStyle(fontSize: 9.5, color: AppTheme.slateMuted)),
@@ -323,28 +337,24 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
                         sideTitles: SideTitles(
                           showTitles: true,
                           interval: 2,
-                          reservedSize: 24,
+                          reservedSize: 22,
                           getTitlesWidget: (val, _) => Text('${val.toInt()}', style: const TextStyle(fontSize: 9.5, color: AppTheme.slateMuted)),
                         ),
                       ),
                     ),
                     borderData: FlBorderData(show: false),
-                    minX: 0,
-                    maxX: (spots.length - 1).toDouble().clamp(1.0, 30.0),
                     minY: 0,
                     maxY: 10,
                     lineBarsData: [
                       LineChartBarData(
                         spots: spots,
                         isCurved: true,
-                        curveSmoothness: 0.35,
                         color: AppTheme.primaryTeal,
                         barWidth: 3,
-                        isStrokeCapRound: true,
                         dotData: const FlDotData(show: true),
                         belowBarData: BarAreaData(
                           show: true,
-                          color: AppTheme.primaryTeal.withOpacity(0.1),
+                          color: AppTheme.primaryTeal.withOpacity(0.08),
                         ),
                       ),
                     ],
@@ -419,7 +429,8 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
                           getTitlesWidget: (val, _) {
                             final idx = val.toInt();
                             if (idx >= 0 && idx < chronological.length) {
-                              final dateStr = chronological[idx]['created_at']?.toString().substring(5, 10) ?? '';
+                              final fullDate = chronological[idx]['log_date']?.toString() ?? chronological[idx]['created_at']?.toString() ?? '';
+                              final dateStr = fullDate.length >= 10 ? fullDate.substring(5, 10) : fullDate;
                               return Padding(
                                 padding: const EdgeInsets.only(top: 6),
                                 child: Text(dateStr, style: const TextStyle(fontSize: 9.5, color: AppTheme.slateMuted)),
@@ -505,6 +516,27 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
               divisions: 18,
               activeColor: AppTheme.oceanAzure,
               onChanged: (val) => setState(() => _currentSleep = double.parse(val.toStringAsFixed(1))),
+            ),
+            const SizedBox(height: 8),
+
+            // Fix 7: General Anxiety Level Slider
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('مستوى القلق العام:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                Text(
+                  _getAnxietyLabel(_anxietyLevel),
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.alertRose, fontSize: 12.5),
+                ),
+              ],
+            ),
+            Slider(
+              value: _anxietyLevel.toDouble(),
+              min: 1.0,
+              max: 3.0,
+              divisions: 2,
+              activeColor: AppTheme.alertRose,
+              onChanged: (val) => setState(() => _anxietyLevel = val.round()),
             ),
             const SizedBox(height: 10),
 

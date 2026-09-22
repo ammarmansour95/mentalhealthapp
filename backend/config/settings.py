@@ -136,7 +136,8 @@ CORS_ALLOW_CREDENTIALS = True
 # Medical Data Field-Level Encryption
 FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'dGhpcy1pcy1hLXNhbXBsZS0zMmJ5dGUtZmVybmV0LWtleT0=')
 
-# AI & AraBART Settings
-AI_PROVIDER = os.getenv('AI_PROVIDER', 'arabart')
+# AI & MARBERTv2 Clinical NLP Settings
+AI_PROVIDER = os.getenv('AI_PROVIDER', 'marbert')
+MARBERT_MODEL_NAME = os.getenv('MARBERT_MODEL_NAME', 'UBC-NLP/MARBERTv2')
 ARABART_MODEL_NAME = os.getenv('ARABART_MODEL_NAME', 'aubmindlab/arabart-base')
 MAX_INTERVIEW_TURNS = int(os.getenv('MAX_INTERVIEW_TURNS', '10'))

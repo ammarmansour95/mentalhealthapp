@@ -77,14 +77,24 @@ class ApiService {
 
   static dynamic _processResponse(http.Response response) {
     final utf8Body = utf8.decode(response.bodyBytes);
-    final data = jsonDecode(utf8Body);
+    dynamic data;
+    try {
+      data = jsonDecode(utf8Body);
+    } catch (_) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return utf8Body;
+      }
+      throw Exception('خطأ في الاتصال بالخادم (${response.statusCode})');
+    }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return data;
     } else {
       final message = data is Map && data.containsKey('message')
           ? data['message']
-          : 'Server returned error (${response.statusCode})';
+          : (data is Map && data.containsKey('detail')
+              ? data['detail']
+              : 'Server returned error (${response.statusCode})');
       throw Exception(message);
     }
   }

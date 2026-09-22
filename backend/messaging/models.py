@@ -42,6 +42,8 @@ class Message(TimeStampedModel):
     # Message content encrypted at rest (AES-256)
     content_encrypted = EncryptedTextField()
     attachment = models.FileField(upload_to='chat_attachments/', blank=True, null=True)
+    is_emergency = models.BooleanField(default=False, db_index=True, help_text="Emergency bypass flag used outside appointment window")
+    emergency_reason = models.TextField(blank=True, default='')
     is_read = models.BooleanField(default=False, db_index=True)
     read_at = models.DateTimeField(null=True, blank=True)
 

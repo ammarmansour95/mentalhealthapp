@@ -5,14 +5,15 @@ from accounts.serializers import UserSerializer
 
 class MessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
+    content = serializers.CharField(source='content_encrypted', read_only=True)
     is_me = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = [
             'id', 'conversation', 'sender', 'sender_name',
-            'content_encrypted', 'attachment', 'is_read',
-            'read_at', 'is_me', 'created_at'
+            'content', 'content_encrypted', 'attachment', 'is_emergency',
+            'emergency_reason', 'is_read', 'read_at', 'is_me', 'created_at'
         ]
         read_only_fields = ['id', 'sender', 'is_read', 'created_at']
 
@@ -26,15 +27,18 @@ class MessageSerializer(serializers.ModelSerializer):
 class ConversationSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.user.get_full_name', read_only=True)
     patient_avatar = serializers.ImageField(source='patient.user.avatar', read_only=True)
+    patient_phone = serializers.CharField(source='patient.user.phone_number', read_only=True)
+    patient_age = serializers.IntegerField(source='patient.user.age', read_only=True)
     doctor_name = serializers.CharField(source='doctor.user.get_full_name', read_only=True)
     doctor_avatar = serializers.ImageField(source='doctor.user.avatar', read_only=True)
+    doctor_phone = serializers.CharField(source='doctor.user.phone_number', read_only=True)
     last_message = serializers.SerializerMethodField()
 
     class Meta:
         model = Conversation
         fields = [
-            'id', 'patient', 'patient_name', 'patient_avatar',
-            'doctor', 'doctor_name', 'doctor_avatar',
+            'id', 'patient', 'patient_name', 'patient_avatar', 'patient_phone', 'patient_age',
+            'doctor', 'doctor_name', 'doctor_avatar', 'doctor_phone',
             'is_active', 'last_message', 'updated_at'
         ]
 

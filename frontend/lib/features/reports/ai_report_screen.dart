@@ -12,10 +12,36 @@ class AIReportScreen extends StatelessWidget {
       case 'HIGH':
         return AppTheme.alertRose;
       case 'MODERATE':
-        return AppTheme.oceanAzure;
+        return const Color(0xFFF59E0B);
       default:
         return AppTheme.sageGreen;
     }
+  }
+
+  /// Strips technical tensor / model debug lines from the clinical summary narrative
+  String _cleanPatientSummary(String rawSummary) {
+    if (rawSummary.isEmpty) return '';
+    const ignoredPatterns = [
+      'نموذج الاستدلال',
+      'آلية التحليل',
+      'Embeddings:',
+      'Tensor',
+      'Tokens',
+      '768-dim',
+      'AraBERT',
+      'AraBART',
+      'MARBERT',
+    ];
+
+    final lines = rawSummary.split('\n');
+    final cleanLines = lines.where((line) {
+      for (final pattern in ignoredPatterns) {
+        if (line.contains(pattern)) return false;
+      }
+      return true;
+    }).toList();
+
+    return cleanLines.join('\n').trim();
   }
 
   @override
@@ -23,7 +49,8 @@ class AIReportScreen extends StatelessWidget {
     final riskLevel = reportData['preliminary_risk_level'] ?? 'LOW';
     final riskColor = _getRiskColor(riskLevel);
     final riskDisplay = reportData['preliminary_risk_level_display'] ?? riskLevel;
-    final summaryAr = reportData['summary_ar_encrypted'] ?? '';
+    final rawSummaryAr = reportData['summary_ar_encrypted'] ?? '';
+    final cleanSummaryAr = _cleanPatientSummary(rawSummaryAr);
     final indicators = reportData['primary_indicators'] as List? ?? [];
     final specialty = reportData['recommended_specialty'] ?? 'CLINICAL_PSYCHOLOGY';
     final specialtyDisplay = reportData['recommended_specialty_display'] ?? specialty;
@@ -55,7 +82,7 @@ class AIReportScreen extends StatelessWidget {
                       ),
                       SizedBox(height: 2),
                       Text(
-                        'تحليل وتلخيص شامل بواسطة AraBART AI',
+                        'تحليل وتلخيص شامل للمؤشرات السريرية المبدئية',
                         style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
                       ),
                     ],
@@ -144,7 +171,7 @@ class AIReportScreen extends StatelessWidget {
                 const Text('أعراض عامة ومؤشرات أولية خفيفة بدون دلالات حادة.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 12)),
               const SizedBox(height: 20),
 
-              // Clinical Narrative Summary Card
+              // Clinical Narrative Summary Card (Cleaned without tensor metadata)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(18),
@@ -157,7 +184,7 @@ class AIReportScreen extends StatelessWidget {
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'الملخص السريري الذكي (AraBART)',
+                              'الملخص السريري الأولي',
                               style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -165,7 +192,7 @@ class AIReportScreen extends StatelessWidget {
                       ),
                       const Divider(height: 18),
                       Text(
-                        summaryAr,
+                        cleanSummaryAr.isNotEmpty ? cleanSummaryAr : rawSummaryAr,
                         style: const TextStyle(fontSize: 13, height: 1.6, color: AppTheme.slateNavy),
                       ),
                     ],
@@ -222,8 +249,8 @@ class AIReportScreen extends StatelessWidget {
                             ),
                           );
                         },
-                        icon: const Icon(Icons.calendar_month_outlined, size: 18),
-                        label: const Text('حجز موعد مع الأطباء المقترحين', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                        icon: const Icon(Icons.calendar_month, size: 18),
+                        label: const Text('حجز موعد مع أخصائي في هذا المجال', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -231,42 +258,31 @@ class AIReportScreen extends StatelessWidget {
               ),
               const SizedBox(height: 18),
 
-              // Clinical Safety Notice (Clean Soft Ocean Theme)
+              // Medical & Ethical Disclaimer
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: AppTheme.oceanAzure.withOpacity(0.06),
+                  color: AppTheme.slateNavy.withOpacity(0.03),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppTheme.oceanAzure.withOpacity(0.2)),
+                  border: Border.all(color: AppTheme.slateNavy.withOpacity(0.08)),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.info_outline, color: AppTheme.oceanAzure, size: 18),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.info_outline, size: 18, color: AppTheme.slateMuted),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         disclaimer.isNotEmpty
                             ? disclaimer
-                            : 'تنبيه سريري: هذا التقرير هو تلخيص أولي استرشادي لمساعدة الطبيب ولا يُعد تشخيصاً طبياً نهائياً.',
-                        style: const TextStyle(fontSize: 11.5, color: AppTheme.slateNavy, height: 1.4),
+                            : 'تنويه سريري: هذا التقرير الأولي مُولّد بواسطة تقنيات الذكاء الاصطناعي كأداة استرشادية للمساعدة في الفرز والتوجيه ولا يُعد بديلاً عن الفحص الطبي المباشر.',
+                        style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted, height: 1.45),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-
-              // Back Button
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                ),
-                onPressed: () => Navigator.pop(context),
-                child: const Text('العودة للوحة التحكم', style: TextStyle(fontSize: 13)),
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
             ],
           ),
         ),

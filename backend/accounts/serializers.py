@@ -27,6 +27,9 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
         ]
 
 
+from core.sms_service import normalize_syrian_phone
+from datetime import date
+
 class UserSerializer(serializers.ModelSerializer):
     patient_profile = PatientProfileSerializer(read_only=True)
     doctor_profile = DoctorProfileSerializer(read_only=True)
@@ -35,7 +38,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name', 'role', 'status',
-            'phone_number', 'preferred_language', 'avatar',
+            'phone_number', 'is_phone_verified', 'age', 'preferred_language', 'avatar',
             'patient_profile', 'doctor_profile', 'created_at'
         ]
         read_only_fields = ['id', 'status', 'created_at']
@@ -46,6 +49,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=User.ROLE_CHOICES, default='PATIENT')
     first_name = serializers.CharField(required=True, allow_blank=False)
     last_name = serializers.CharField(required=True, allow_blank=False)
+    phone_number = serializers.CharField(required=True, allow_blank=False, help_text="Syrian mobile number (+9639... / 09...)")
+    age = serializers.IntegerField(required=True, min_value=12, max_value=110, help_text="Age in years")
     
     # Doctor specific optional fields during initial signup
     specialty = serializers.CharField(required=False, allow_blank=True, allow_null=True)
@@ -56,9 +61,15 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'password', 'first_name', 'last_name', 'role',
-            'phone_number', 'preferred_language', 'specialty',
+            'phone_number', 'age', 'preferred_language', 'specialty',
             'license_number', 'years_of_experience'
         ]
+
+    def validate_phone_number(self, value):
+        try:
+            return normalize_syrian_phone(value)
+        except ValueError as e:
+            raise serializers.ValidationError(str(e))
 
     def create(self, validated_data):
         specialty = validated_data.pop('specialty', None)
@@ -66,6 +77,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         years_of_experience = validated_data.pop('years_of_experience', 0)
         password = validated_data.pop('password')
         role = validated_data.get('role', 'PATIENT')
+        age = validated_data.get('age')
 
         # Clean email
         validated_data['email'] = validated_data['email'].strip().lower()
@@ -77,7 +89,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         user = User.objects.create_user(password=password, **validated_data)
 
         if role == 'PATIENT':
-            PatientProfile.objects.create(user=user)
+            approx_dob = None
+            if age:
+                approx_dob = date(date.today().year - age, 1, 1)
+            PatientProfile.objects.create(user=user, date_of_birth=approx_dob)
         elif role == 'DOCTOR':
             DoctorProfile.objects.create(
                 user=user,

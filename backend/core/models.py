@@ -28,6 +28,7 @@ class AuditLog(TimeStampedModel):
         ('APPOINTMENT_CANCELLED', 'Appointment Cancelled'),
         ('TREATMENT_PLAN_UPDATED', 'Treatment Plan Updated'),
         ('UNAUTHORIZED_ACCESS_ATTEMPT', 'Unauthorized Access Attempt'),
+        ('CRISIS_SAFETY_PROTOCOL_ACTIVATED', 'Emergency Crisis Safety Protocol Activated'),
     )
 
     user = models.ForeignKey(
@@ -61,6 +62,8 @@ class Notification(TimeStampedModel):
         ('DOCTOR_VERIFIED', 'Doctor License Approved'),
         ('DOCTOR_REJECTED', 'Doctor License Rejected'),
         ('SYSTEM_ALERT', 'System Alert'),
+        ('CRISIS_ALERT', 'Urgent Patient Crisis / Suicide Alert'),
+        ('NEW_MESSAGE', 'New Direct Message (رسالة محادثة جديدة)'),
     )
 
     recipient = models.ForeignKey(

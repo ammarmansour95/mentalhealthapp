@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/services/api_service.dart';
+import 'package:frontend/core/services/native_notification_service.dart';
 import 'package:frontend/core/widgets/notification_sheet.dart';
 
 class NotificationBellButton extends StatefulWidget {
@@ -13,25 +15,67 @@ class NotificationBellButton extends StatefulWidget {
 
 class _NotificationBellButtonState extends State<NotificationBellButton> {
   int _unreadCount = 0;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
-    _fetchUnreadCount();
+    _fetchUnreadCount(isInitial: true);
+    // Request device notification permission on dashboard load
+    NativeNotificationService.requestPermission();
+    // Poll for notifications every 4 seconds
+    _pollTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      _fetchUnreadCount(isInitial: false);
+    });
   }
 
-  Future<void> _fetchUnreadCount() async {
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchUnreadCount({bool isInitial = false}) async {
     try {
       final res = await ApiService.get('/notifications/unread-count/');
       if (res['success'] == true && mounted) {
+        final newCount = res['unread_count'] as int? ?? 0;
+        if (!isInitial && newCount > _unreadCount) {
+          // New notification arrived! Fetch latest to show native notification banner
+          _showNativeAlertForNewNotification();
+        }
         setState(() {
-          _unreadCount = res['unread_count'] ?? 0;
+          _unreadCount = newCount;
         });
       }
     } catch (_) {}
   }
 
+  Future<void> _showNativeAlertForNewNotification() async {
+    try {
+      final res = await ApiService.get('/notifications/');
+      if (res['success'] == true && res['notifications'] != null) {
+        final list = res['notifications'] as List;
+        final unreadList = list.where((n) => n['is_read'] == false).toList();
+        if (unreadList.isNotEmpty) {
+          final top = unreadList.first;
+          final type = top['notification_type'] ?? '';
+          final title = top['title'] ?? 'إشعار جديد';
+          final message = top['message'] ?? '';
+          final tag = (type == 'CRISIS_ALERT' || type == 'EMERGENCY') ? 'crisis' : 'general';
+
+          NativeNotificationService.showNotification(
+            title: title,
+            body: message,
+            tag: tag,
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
   void _openNotifications() {
+    NativeNotificationService.requestPermission();
     NotificationSheet.show(
       context,
       onUpdated: () {

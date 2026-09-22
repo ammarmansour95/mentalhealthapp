@@ -26,6 +26,15 @@ android/app/profile/
 android/app/release/
 ios/Flutter/.last_build_id
 # ========================
+# AI Trained Models & Weights (> 100MB)
+# ========================
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.onnx
+
+# ========================
 # IDE & System Files
 # ========================
 .idea/
@@ -33,3 +42,4 @@ ios/Flutter/.last_build_id
 .vscode/
 .DS_Store
 Thumbs.db
+

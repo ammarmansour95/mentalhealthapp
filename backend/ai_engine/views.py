@@ -116,7 +116,12 @@ class AIInterviewTurnView(APIView):
         patient_msg.extracted_symptoms = turn_result.get('extracted_symptoms', [])
         patient_msg.save()
 
-        # 3. Update Session State
+        # 3. Emergency Safety Protocol: Alert Doctors & Admins Instantly
+        if turn_result.get('crisis_detected', False):
+            from ai_engine.services.crisis_alert import trigger_patient_crisis_alert
+            trigger_patient_crisis_alert(patient, session, user_message_text)
+
+        # 4. Update Session State
         session.current_stage = turn_result['next_stage']
         session.turn_count += 1
         if turn_result['is_complete']:
@@ -208,6 +213,11 @@ class CompleteAIInterviewView(APIView):
             recommendation_reason_en=analysis_result['recommendation_reason_en'],
             safety_warning_triggered=analysis_result['safety_warning_triggered']
         )
+
+        # Trigger emergency alert to Doctors & Admins if high risk or safety warning
+        if report.safety_warning_triggered or report.preliminary_risk_level == 'HIGH':
+            from ai_engine.services.crisis_alert import trigger_patient_crisis_alert
+            trigger_patient_crisis_alert(patient, session, full_transcript)
 
         # Audit Log
         AuditLog.objects.create(

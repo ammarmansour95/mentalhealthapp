@@ -45,6 +45,8 @@ class User(AbstractUser):
     role = models.CharField(max_length=16, choices=ROLE_CHOICES, default='PATIENT', db_index=True)
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default='ACTIVE', db_index=True)
     phone_number = models.CharField(max_length=32, blank=True, null=True)
+    is_phone_verified = models.BooleanField(default=False, db_index=True)
+    age = models.PositiveIntegerField(null=True, blank=True, help_text="Age in years recorded at registration")
     firebase_uid = models.CharField(max_length=128, blank=True, null=True, unique=True, db_index=True)
     preferred_language = models.CharField(max_length=8, default='ar', choices=(('ar', 'Arabic'), ('en', 'English')))
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
@@ -58,3 +60,20 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.get_full_name() or self.email} ({self.role})"
+
+
+class PhoneVerificationOTP(models.Model):
+    """Stores temporary 6-digit OTP codes for Syrian phone number (+963) verification."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    phone_number = models.CharField(max_length=32, db_index=True)
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+    is_used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"OTP for {self.phone_number} (Used: {self.is_used})"
+

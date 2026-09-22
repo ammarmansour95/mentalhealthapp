@@ -1,6 +1,6 @@
 from django.conf import settings
 from ai_engine.services.base import BaseAIService
-from ai_engine.services.arabart_service import AraBARTAssessmentService
+from ai_engine.services.marbert_service import MARBERTAssessmentService
 
 _service_instance = None
 
@@ -8,14 +8,13 @@ _service_instance = None
 def get_ai_service() -> BaseAIService:
     """
     Factory function returning the configured AI Service.
-    Easily configurable to switch between AraBART, Gemini, OpenAI, or hybrid LLM providers.
+    Defaults to the fine-tuned MARBERTv2 Deep Learning sequence classifier.
     """
     global _service_instance
     if _service_instance is None:
-        provider = getattr(settings, 'AI_PROVIDER', 'arabart').lower()
-        if provider == 'arabart':
-            _service_instance = AraBARTAssessmentService()
+        provider = getattr(settings, 'AI_PROVIDER', 'marbert').lower()
+        if provider in ('marbert', 'arabert', 'arabart'):
+            _service_instance = MARBERTAssessmentService()
         else:
-            # Fallback to AraBART service
-            _service_instance = AraBARTAssessmentService()
+            _service_instance = MARBERTAssessmentService()
     return _service_instance
