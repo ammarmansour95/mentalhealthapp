@@ -40,6 +40,10 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isWindowOpen = true;
   String _windowReason = '';
   Map<String, dynamic>? _nextAppointment;
+  bool _isDoctorUnlocked = false;
+  String? _doctorUnlockedUntil;
+  bool _isPatientWindowOpen = false;
+  bool _isTogglingUnlock = false;
 
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -87,11 +91,14 @@ class _ChatScreenState extends State<ChatScreen> {
           final conv = res['conversation'] as Map<String, dynamic>;
           _patientPhone = conv['patient_phone']?.toString();
           _patientAge = conv['patient_age'] as int?;
-          final status = res['window_status'] as Map<String, dynamic>?;
+          final status = (res['window_status'] as Map<String, dynamic>?) ?? (res as Map<String, dynamic>?);
           if (status != null) {
-            _isWindowOpen = status['is_open'] ?? true;
-            _windowReason = status['reason'] ?? '';
+            _isWindowOpen = status['is_window_open'] == true || status['is_open'] == true;
+            _windowReason = status['window_reason']?.toString() ?? status['reason']?.toString() ?? '';
             _nextAppointment = status['next_appointment'] as Map<String, dynamic>?;
+            _isDoctorUnlocked = status['is_doctor_unlocked'] == true;
+            _doctorUnlockedUntil = status['doctor_unlocked_until']?.toString();
+            _isPatientWindowOpen = status['is_patient_window_open'] == true || _isDoctorUnlocked;
           }
         }
       }
@@ -112,7 +119,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final res = await ApiService.get('/messaging/conversations/$_conversationId/messages/');
       if (res['success'] == true && mounted) {
         final messages = (res['messages'] as List?) ?? [];
-        final status = res['window_status'] as Map<String, dynamic>?;
+        final status = (res['window_status'] as Map<String, dynamic>?) ?? (res as Map<String, dynamic>?);
 
         if (res['conversation'] != null) {
           final conv = res['conversation'] as Map<String, dynamic>;
@@ -121,9 +128,12 @@ class _ChatScreenState extends State<ChatScreen> {
         }
 
         if (status != null) {
-          _isWindowOpen = status['is_open'] ?? true;
-          _windowReason = status['reason'] ?? '';
+          _isWindowOpen = status['is_window_open'] == true || status['is_open'] == true;
+          _windowReason = status['window_reason']?.toString() ?? status['reason']?.toString() ?? '';
           _nextAppointment = status['next_appointment'] as Map<String, dynamic>?;
+          _isDoctorUnlocked = status['is_doctor_unlocked'] == true;
+          _doctorUnlockedUntil = status['doctor_unlocked_until']?.toString();
+          _isPatientWindowOpen = status['is_patient_window_open'] == true || _isDoctorUnlocked;
         }
 
         final prevCount = _messages.length;
@@ -134,9 +144,17 @@ class _ChatScreenState extends State<ChatScreen> {
         // If new message received from other party in background, scroll and alert
         if (isBackground && messages.length > prevCount && messages.isNotEmpty) {
           final lastMsg = messages.last;
-          if (lastMsg['sender_name'] == widget.otherUserName) {
+          final lastSender = (lastMsg['sender_name'] ?? '').toString().trim();
+          final currentOther = widget.otherUserName.trim();
+          final cleanLast = lastSender.replaceAll('د. ', '').replaceAll('د.', '').trim();
+          final cleanOther = currentOther.replaceAll('د. ', '').replaceAll('د.', '').trim();
+
+          if (lastSender == currentOther || cleanLast == cleanOther) {
+            final displayTitle = widget.otherUserRole.contains('طبيب') && !currentOther.startsWith('د.')
+                ? 'د. $currentOther'
+                : currentOther;
             NativeNotificationService.showNotification(
-              title: widget.otherUserName,
+              title: displayTitle,
               body: lastMsg['content'] ?? '',
               tag: lastMsg['is_emergency'] == true ? 'crisis' : 'message',
             );
@@ -147,6 +165,136 @@ class _ChatScreenState extends State<ChatScreen> {
         }
       }
     } catch (_) {}
+  }
+
+  Future<void> _toggleDoctorUnlock({required bool unlock, int hours = 24}) async {
+    if (_conversationId == null) {
+      await _initConversation();
+      if (_conversationId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تعذر تحديد معرف المحادثة.'), backgroundColor: AppTheme.alertRose),
+          );
+        }
+        return;
+      }
+    }
+    setState(() => _isTogglingUnlock = true);
+    try {
+      final res = await ApiService.post(
+        '/messaging/conversations/$_conversationId/doctor-unlock/',
+        {
+          'action': unlock ? 'unlock' : 'lock',
+          'hours': hours,
+        },
+      );
+
+      if (res['success'] == true && mounted) {
+        final status = (res['window_status'] as Map<String, dynamic>?) ?? (res as Map<String, dynamic>?);
+        if (status != null) {
+          setState(() {
+            _isDoctorUnlocked = status['is_doctor_unlocked'] == true;
+            _doctorUnlockedUntil = status['doctor_unlocked_until']?.toString();
+            _isPatientWindowOpen = status['is_patient_window_open'] == true || _isDoctorUnlocked;
+          });
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(res['message'] ?? (unlock ? 'تم فتح المحادثة للمريض' : 'تم قفل المحادثة')),
+            backgroundColor: unlock ? AppTheme.sageGreen : AppTheme.alertRose,
+          ),
+        );
+        _fetchMessages();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ: $e'), backgroundColor: AppTheme.alertRose),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isTogglingUnlock = false);
+    }
+  }
+
+  void _showDoctorUnlockDialog() {
+    int selectedHours = 24;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_open, color: AppTheme.primaryTeal, size: 24),
+              SizedBox(width: 8),
+              Text('فتح نافذة المحادثة للمريض', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'يتيح هذا الإجراء للمريض (${widget.otherUserName}) إرسال الرسائل النصية والاستفسارات مباشرة حتى لو لم يكن لديه موعد نشط.',
+                style: const TextStyle(fontSize: 12.5, height: 1.4),
+              ),
+              const SizedBox(height: 14),
+              const Text('مدة الفتح الممنوحة:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text('24 ساعة'),
+                    selected: selectedHours == 24,
+                    selectedColor: AppTheme.primaryTeal,
+                    onSelected: (s) => setDialogState(() => selectedHours = 24),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('48 ساعة'),
+                    selected: selectedHours == 48,
+                    selectedColor: AppTheme.primaryTeal,
+                    onSelected: (s) => setDialogState(() => selectedHours = 48),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('72 ساعة'),
+                    selected: selectedHours == 72,
+                    selectedColor: AppTheme.primaryTeal,
+                    onSelected: (s) => setDialogState(() => selectedHours = 72),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryTeal),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _toggleDoctorUnlock(unlock: true, hours: selectedHours);
+              },
+              icon: const Icon(Icons.check, size: 16),
+              label: Text('تأكيد الفتح ($selectedHours ساعة)'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatDateTime(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr).toLocal();
+      return DateFormat('HH:mm yyyy/MM/dd').format(dt);
+    } catch (_) {
+      return dateStr;
+    }
   }
 
   void _scrollToBottom() {
@@ -181,7 +329,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (isEmergency && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('🚨 تم إرسال نداء الطوارئ السريري بنجاح إلى الطبيب والمنصة عبر الإشعار والرسائل النصية SMS.'),
+              content: Text('تم إرسال نداء الطوارئ السريري بنجاح إلى الطبيب والمنصة عبر الإشعار والرسائل النصية SMS.'),
               backgroundColor: AppTheme.alertRose,
               duration: Duration(seconds: 6),
             ),
@@ -254,7 +402,7 @@ class _ChatScreenState extends State<ChatScreen> {
               _openEmergencyDialog();
             },
             icon: const Icon(Icons.emergency, size: 18),
-            label: const Text('🚨 كسر القفل للطوارئ'),
+            label: const Text('كسر القفل للطوارئ'),
           ),
         ],
       ),
@@ -376,7 +524,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     }
                   : null,
               icon: const Icon(Icons.emergency, size: 18),
-              label: const Text('إرسال نداء الطوارئ الآن 🚨'),
+              label: const Text('إرسال نداء الطوارئ الآن'),
             ),
           ],
         ),
@@ -412,7 +560,7 @@ class _ChatScreenState extends State<ChatScreen> {
       if (res['success'] == true && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('🚨 تم تصعيد بلاغ الطوارئ السريري لإدارة المنصة بنجاح.'),
+            content: Text('تم تصعيد بلاغ الطوارئ السريري لإدارة المنصة بنجاح.'),
             backgroundColor: AppTheme.alertRose,
             duration: Duration(seconds: 5),
           ),
@@ -664,7 +812,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   _showDoctorEscalateConfirmDialog();
                 },
                 icon: const Icon(Icons.warning_amber_rounded, size: 18),
-                label: const Text('🚨 تصعيد بلاغ طوارئ سريري لإدارة المنصة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                label: const Text('تصعيد بلاغ طوارئ سريري لإدارة المنصة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -700,7 +848,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   Text(
                     widget.otherUserName,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
                     overflow: TextOverflow.ellipsis,
                   ),
                   Row(
@@ -710,18 +858,29 @@ class _ChatScreenState extends State<ChatScreen> {
                         height: 7,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: _isWindowOpen ? AppTheme.sageGreen : Colors.amber.shade700,
+                          color: isDoctor
+                              ? (_isDoctorUnlocked || _isPatientWindowOpen ? AppTheme.sageGreen : Colors.amber.shade700)
+                              : (_isWindowOpen ? AppTheme.sageGreen : Colors.amber.shade700),
                         ),
                       ),
                       const SizedBox(width: 5),
-                      Text(
-                        isDoctor
-                            ? 'محادثة المريض (متاحة دائماً للطبيب)'
-                            : (_isWindowOpen ? 'النافذة مفتوحة (جلسة نشطة)' : 'النافذة مقفلة (خارج الجلسة)'),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _isWindowOpen ? AppTheme.sageGreen : Colors.amber.shade800,
-                          fontWeight: FontWeight.w600,
+                      Flexible(
+                        child: Text(
+                          isDoctor
+                              ? (_isDoctorUnlocked
+                                  ? 'مفتوحة للمريض استثنائياً'
+                                  : (_isPatientWindowOpen ? 'مفتوحة للمريض (موعد نشط)' : 'مقفلة للمريض (خارج الجلسة)'))
+                              : (_isWindowOpen
+                                  ? (_isDoctorUnlocked ? 'مفتوحة بإذن الطبيب' : 'النافذة مفتوحة (جلسة نشطة)')
+                                  : 'النافذة مقفلة (خارج الجلسة)'),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: isDoctor
+                                ? (_isDoctorUnlocked || _isPatientWindowOpen ? AppTheme.sageGreen : Colors.amber.shade800)
+                                : (_isWindowOpen ? AppTheme.sageGreen : Colors.amber.shade800),
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -732,11 +891,6 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, size: 20),
-            tooltip: 'تحديث المحادثة',
-            onPressed: () => _fetchMessages(),
-          ),
           if (isDoctor)
             IconButton(
               icon: const Icon(Icons.phone_in_talk, color: AppTheme.sageGreen),
@@ -783,7 +937,107 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Widget _buildWindowStatusBanner(bool isDoctor) {
     if (isDoctor) {
-      return const SizedBox.shrink();
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: _isDoctorUnlocked
+              ? AppTheme.sageGreenLight.withValues(alpha: 0.45)
+              : (_isPatientWindowOpen ? AppTheme.primaryTeal.withValues(alpha: 0.08) : Colors.amber.shade50),
+          border: Border(
+            bottom: BorderSide(
+              color: _isDoctorUnlocked
+                  ? AppTheme.sageGreen.withValues(alpha: 0.4)
+                  : (_isPatientWindowOpen ? AppTheme.primaryTeal.withValues(alpha: 0.2) : Colors.amber.shade300),
+            ),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              _isDoctorUnlocked
+                  ? Icons.lock_open
+                  : (_isPatientWindowOpen ? Icons.check_circle_outline : Icons.lock_clock),
+              size: 18,
+              color: _isDoctorUnlocked
+                  ? AppTheme.sageGreen
+                  : (_isPatientWindowOpen ? AppTheme.primaryTeal : Colors.amber.shade800),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _isDoctorUnlocked
+                        ? 'تم فتح المحادثة استثنائياً للمريض'
+                        : (_isPatientWindowOpen
+                            ? 'المحادثة متاحة للمريض (ضمن نافذة الموعد)'
+                            : 'المحادثة مقفلة للمريض حالياً (خارج نافذة الموعد)'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: _isDoctorUnlocked
+                          ? AppTheme.sageGreen
+                          : (_isPatientWindowOpen ? AppTheme.primaryTealDark : Colors.amber.shade900),
+                    ),
+                  ),
+                  Text(
+                    _isDoctorUnlocked
+                        ? (_doctorUnlockedUntil != null
+                            ? 'المريض قادر على مراسلتك (مفتوحة حتى: ${_formatDateTime(_doctorUnlockedUntil!)})'
+                            : 'المريض قادر على مراسلتك الآن لمتابعة استفساراته.')
+                        : (_isPatientWindowOpen
+                            ? 'المريض قادر على مراسلتك ضمن نافذة الـ 24 ساعة.'
+                            : 'يمكنك فتح المحادثة للمريض يدوياً لاستقبال استفساراته.'),
+                    style: const TextStyle(fontSize: 10.5, color: AppTheme.slateNavy),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (_isTogglingUnlock)
+              const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+            else if (_isDoctorUnlocked) ...[
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.alertRose,
+                  side: BorderSide(color: AppTheme.alertRose.withValues(alpha: 0.4)),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _toggleDoctorUnlock(unlock: false),
+                icon: const Icon(Icons.lock, size: 13),
+                label: const Text('قفل', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 4),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.sageGreen,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () => _toggleDoctorUnlock(unlock: true, hours: 24),
+                icon: const Icon(Icons.more_time, size: 13),
+                label: const Text('+24 س', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ] else ...[
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryTeal,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: _showDoctorUnlockDialog,
+                icon: const Icon(Icons.lock_open, size: 14),
+                label: const Text('فتح للمريض', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ],
+        ),
+      );
     }
     if (_isWindowOpen) {
       return Container(
@@ -793,14 +1047,16 @@ class _ChatScreenState extends State<ChatScreen> {
           color: AppTheme.sageGreenLight.withValues(alpha: 0.4),
           border: Border(bottom: BorderSide(color: AppTheme.sageGreen.withValues(alpha: 0.3))),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.check_circle_outline, size: 16, color: AppTheme.sageGreen),
-            SizedBox(width: 8),
+            const Icon(Icons.check_circle_outline, size: 16, color: AppTheme.sageGreen),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'نافذة المحادثة مفتوحة حالياً (ضمن موعد الجلسة المعتمدة ومتابعتها لمدة 24 ساعة).',
-                style: TextStyle(fontSize: 11.5, color: AppTheme.slateDark, fontWeight: FontWeight.w600),
+                _windowReason.isNotEmpty
+                    ? _windowReason
+                    : 'نافذة المحادثة مفتوحة حالياً (ضمن موعد الجلسة المعتمدة ومتابعتها لمدة 24 ساعة).',
+                style: const TextStyle(fontSize: 11.5, color: AppTheme.slateDark, fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -872,7 +1128,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   onPressed: _openEmergencyDialog,
                   icon: const Icon(Icons.emergency, size: 16),
                   label: const Text(
-                    '🚨 كسر القفل لحالة طوارئ سريرية (Emergency Alert)',
+                    'كسر القفل لحالة طوارئ سريرية (Emergency Alert)',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -965,7 +1221,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     const Icon(Icons.emergency, size: 14, color: AppTheme.alertRose),
                     const SizedBox(width: 4),
                     Text(
-                      '🚨 نداء طوارئ سريري',
+                      'نداء طوارئ سريري',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,

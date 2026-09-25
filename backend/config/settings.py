@@ -140,4 +140,4 @@ FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'dGhpcy1pcy1hLXNhbXBsZS
 AI_PROVIDER = os.getenv('AI_PROVIDER', 'marbert')
 MARBERT_MODEL_NAME = os.getenv('MARBERT_MODEL_NAME', 'UBC-NLP/MARBERTv2')
 ARABART_MODEL_NAME = os.getenv('ARABART_MODEL_NAME', 'aubmindlab/arabart-base')
-MAX_INTERVIEW_TURNS = int(os.getenv('MAX_INTERVIEW_TURNS', '10'))
+MAX_INTERVIEW_TURNS = int(os.getenv('MAX_INTERVIEW_TURNS', '10'))# Dynamic Chat Window Unlock & Messaging Configuration active

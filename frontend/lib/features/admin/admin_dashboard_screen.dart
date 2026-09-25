@@ -9,7 +9,6 @@ import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/providers/auth_provider.dart';
 import 'package:frontend/core/services/api_service.dart';
 import 'package:frontend/core/widgets/notification_bell_button.dart';
-import 'package:frontend/features/auth/login_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -424,7 +423,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Text(
-              '✓ وثيقة صالحة وجاهزة للاعتماد الطبي',
+              'وثيقة صالحة وجاهزة للاعتماد الطبي',
               style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.sageGreen),
             ),
           ),
@@ -700,19 +699,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                               NotificationBellButton(onOpened: _fetchAdminData),
                               const SizedBox(width: 8),
                               InkWell(
-                                onTap: _fetchAdminData,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.all(9),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.slateNavy.withOpacity(0.04),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(Icons.refresh, size: 18, color: AppTheme.slateNavy),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              InkWell(
                                 onTap: () async {
                                   await auth.logout();
                                   if (context.mounted) {
@@ -777,7 +763,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '🚨 تنبيه سلامة ورقابة سريرية (${_metrics!['clinical_and_ai']['risk_breakdown']['high']} حالات طوارئ / إيذاء نفس)',
+                                      'تنبيه سلامة ورقابة سريرية (${_metrics!['clinical_and_ai']['risk_breakdown']['high']} حالات طوارئ / إيذاء نفس)',
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.alertRose),
                                     ),
                                     const SizedBox(height: 2),
@@ -903,7 +889,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                                                 overflow: TextOverflow.ellipsis,
                                               ),
                                             ),
-                                            const Text('(فحص 👁️)', style: TextStyle(fontSize: 10, color: AppTheme.slateMuted)),
+                                            const Text('(معاينة)', style: TextStyle(fontSize: 10, color: AppTheme.slateMuted)),
                                           ],
                                         ),
                                       ),

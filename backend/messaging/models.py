@@ -18,6 +18,7 @@ class Conversation(TimeStampedModel):
         related_name='conversations'
     )
     is_active = models.BooleanField(default=True)
+    doctor_unlocked_until = models.DateTimeField(null=True, blank=True, help_text="Doctor manual chat unlock expiration time for the patient")
 
     class Meta:
         unique_together = ('patient', 'doctor')

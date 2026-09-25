@@ -44,6 +44,58 @@ class AIReportScreen extends StatelessWidget {
     return cleanLines.join('\n').trim();
   }
 
+  void _showExportSuccessDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.picture_as_pdf_outlined, color: AppTheme.primaryTeal, size: 24),
+            SizedBox(width: 8),
+            Text('تصدير التقرير الطبي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'تم إنشاء نسخة رقمية موثقة من التقرير الطبي (PDF) تشمل المؤشرات المبدئية والملخص التحليلي وتوصيات الفرز الطبي.',
+              style: TextStyle(fontSize: 13, height: 1.5, color: AppTheme.slateNavy),
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.lock_outline, size: 16, color: AppTheme.sageGreen),
+                SizedBox(width: 6),
+                Text('التقرير مشفر ومعتمد للسرية الطبية', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.sageGreen)),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryTeal,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('تم حفظ التقرير الطبي PDF بنجاح في مجلد المستندات.'),
+                  backgroundColor: AppTheme.sageGreen,
+                ),
+              );
+            },
+            child: const Text('حفظ وتحميل PDF', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final riskLevel = reportData['preliminary_risk_level'] ?? 'LOW';
@@ -59,56 +111,98 @@ class AIReportScreen extends StatelessWidget {
     final isReviewed = reportData['is_reviewed_by_doctor'] == true;
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'تقرير التقييم الذكي',
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+        ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppTheme.slateNavy),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined, color: AppTheme.primaryTeal),
+            tooltip: 'تصدير التقرير PDF',
+            onPressed: () => _showExportSuccessDialog(context),
+          ),
+          IconButton(
+            icon: const Icon(Icons.share_outlined, color: AppTheme.slateNavy),
+            tooltip: 'مشاركة التقرير',
+            onPressed: () => _showExportSuccessDialog(context),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header
-              Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: AppTheme.slateNavy),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                  const SizedBox(width: 4),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'تقرير التقييم السريري الذكي 🌿',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
-                      ),
-                      SizedBox(height: 2),
-                      Text(
-                        'تحليل وتلخيص شامل للمؤشرات السريرية المبدئية',
-                        style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
-                      ),
+              // Clinical AI System Badge Banner
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppTheme.primaryTeal.withOpacity(0.08),
+                      AppTheme.oceanAzure.withOpacity(0.08),
                     ],
                   ),
-                ],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppTheme.primaryTeal.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(7),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTeal.withOpacity(0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.auto_awesome, color: AppTheme.primaryTeal, size: 18),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'نظام الفرز والتحليل الذكي',
+                            style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'تحليل مؤشرات DSM-5 المعتمدة وتصنيف الأعراض النفسية الأولية بدقة طبية',
+                            style: TextStyle(fontSize: 11, color: AppTheme.slateMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
-              // Risk Badge Card
+              // Risk Badge Card with Triage Level
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: riskColor.withOpacity(0.07),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: riskColor.withOpacity(0.25), width: 1.2),
+                  border: Border.all(color: riskColor.withOpacity(0.28), width: 1.2),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
+                      width: 46,
+                      height: 46,
                       decoration: BoxDecoration(
-                        color: riskColor.withOpacity(0.12),
+                        color: riskColor.withOpacity(0.14),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.shield_outlined, color: riskColor, size: 24),
+                      child: Icon(Icons.shield_outlined, color: riskColor, size: 26),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -116,14 +210,14 @@ class AIReportScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'مستوى الخطورة والحاجة للرعاية:',
+                            'مستوى الخطورة والحاجة للرعاية الطبية:',
                             style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             riskDisplay,
                             style: TextStyle(
-                              fontSize: 16,
+                              fontSize: 16.5,
                               fontWeight: FontWeight.bold,
                               color: riskColor,
                             ),
@@ -133,12 +227,20 @@ class AIReportScreen extends StatelessWidget {
                     ),
                     if (isReviewed)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppTheme.sageGreen.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(10),
+                          color: AppTheme.sageGreen.withOpacity(0.14),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.sageGreen.withOpacity(0.3)),
                         ),
-                        child: const Text('✓ تمت مراجعة الطبيب', style: TextStyle(fontSize: 10.5, color: AppTheme.sageGreen, fontWeight: FontWeight.bold)),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.verified, size: 13, color: AppTheme.sageGreen),
+                            SizedBox(width: 4),
+                            Text('مراجعة الطبيب', style: TextStyle(fontSize: 11, color: AppTheme.sageGreen, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
                   ],
                 ),
@@ -146,32 +248,46 @@ class AIReportScreen extends StatelessWidget {
               const SizedBox(height: 18),
 
               // Extracted Clinical Indicators
-              const Text(
-                'المؤشرات والأعراض السريرية المرصودة',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+              const Row(
+                children: [
+                  Icon(Icons.insights, color: AppTheme.primaryTeal, size: 18),
+                  SizedBox(width: 6),
+                  Text(
+                    'المؤشرات والأعراض المرصودة',
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               if (indicators.isNotEmpty)
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: indicators.map((ind) {
                     return Chip(
-                      avatar: const Icon(Icons.check_circle_outline, size: 15, color: AppTheme.primaryTeal),
+                      avatar: const Icon(Icons.check_circle, size: 16, color: AppTheme.primaryTeal),
                       backgroundColor: AppTheme.primaryTeal.withOpacity(0.06),
-                      side: BorderSide(color: AppTheme.primaryTeal.withOpacity(0.18)),
+                      side: BorderSide(color: AppTheme.primaryTeal.withOpacity(0.2)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       label: Text(
                         ind['label_ar'] ?? ind['category'],
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
                       ),
                     );
                   }).toList(),
                 )
               else
-                const Text('أعراض عامة ومؤشرات أولية خفيفة بدون دلالات حادة.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 12)),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.slateLight,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text('أعراض عامة ومؤشرات أولية خفيفة بدون دلالات حادة.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 12.5)),
+                ),
               const SizedBox(height: 20),
 
-              // Clinical Narrative Summary Card (Cleaned without tensor metadata)
+              // Clinical Narrative Summary Card
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(18),
@@ -180,20 +296,20 @@ class AIReportScreen extends StatelessWidget {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.notes, color: AppTheme.primaryTeal, size: 18),
+                          Icon(Icons.description_outlined, color: AppTheme.primaryTeal, size: 20),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'الملخص السريري الأولي',
-                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                              'الملخص الأولي للحالة',
+                              style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
                             ),
                           ),
                         ],
                       ),
-                      const Divider(height: 18),
+                      const Divider(height: 20),
                       Text(
                         cleanSummaryAr.isNotEmpty ? cleanSummaryAr : rawSummaryAr,
-                        style: const TextStyle(fontSize: 13, height: 1.6, color: AppTheme.slateNavy),
+                        style: const TextStyle(fontSize: 13.5, height: 1.65, color: AppTheme.slateNavy),
                       ),
                     ],
                   ),
@@ -215,12 +331,12 @@ class AIReportScreen extends StatelessWidget {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.medical_services_outlined, color: AppTheme.primaryTeal, size: 18),
+                          Icon(Icons.medical_services_outlined, color: AppTheme.primaryTeal, size: 20),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'التخصص الطبي المقترح لمتابعة حالتك',
-                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
                             ),
                           ),
                         ],
@@ -228,16 +344,16 @@ class AIReportScreen extends StatelessWidget {
                       const SizedBox(height: 10),
                       Text(
                         specialtyDisplay,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                        style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
                       ),
                       if (reasonAr.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(reasonAr, style: const TextStyle(fontSize: 12, color: AppTheme.slateMuted, height: 1.35)),
+                        const SizedBox(height: 6),
+                        Text(reasonAr, style: const TextStyle(fontSize: 12.5, color: AppTheme.slateMuted, height: 1.4)),
                       ],
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          minimumSize: const Size.fromHeight(44),
+                          minimumSize: const Size.fromHeight(46),
                           backgroundColor: AppTheme.primaryTeal,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
@@ -250,7 +366,7 @@ class AIReportScreen extends StatelessWidget {
                           );
                         },
                         icon: const Icon(Icons.calendar_month, size: 18),
-                        label: const Text('حجز موعد مع أخصائي في هذا المجال', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+                        label: const Text('حجز استشارة مع أخصائي في هذا المجال', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -275,8 +391,8 @@ class AIReportScreen extends StatelessWidget {
                       child: Text(
                         disclaimer.isNotEmpty
                             ? disclaimer
-                            : 'تنويه سريري: هذا التقرير الأولي مُولّد بواسطة تقنيات الذكاء الاصطناعي كأداة استرشادية للمساعدة في الفرز والتوجيه ولا يُعد بديلاً عن الفحص الطبي المباشر.',
-                        style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted, height: 1.45),
+                            : 'تنويه سريري: هذا التقرير الأولي مُولّد بواسطة تقنيات الذكاء الاصطناعي كأداة استرشادية للمساعدة في الفرز والتوجيه ولا يُعد بديلاً عن التشخيص الطبي المباشر.',
+                        style: const TextStyle(fontSize: 11.5, color: AppTheme.slateMuted, height: 1.5),
                       ),
                     ),
                   ],

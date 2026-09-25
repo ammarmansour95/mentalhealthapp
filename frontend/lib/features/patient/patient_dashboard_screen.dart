@@ -21,66 +21,53 @@ class PatientDashboardScreen extends StatefulWidget {
 
 class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
   int _selectedNavIndex = 0;
+  int _appointmentsTabIndex = 0; // 0: Upcoming, 1: Past
   List<dynamic> _appointments = [];
   List<dynamic> _reports = [];
   bool _isLoadingData = true;
-  int? _selectedMoodIndex;
   bool _showAllAppointments = false;
   bool _showAllReports = false;
-
-  final List<Map<String, dynamic>> _quickMoods = [
-    {
-      'label': 'مرتاح',
-      'emoji': '🌿',
-      'score': 10,
-      'tip': 'رائع! استمر في روتينك الإيجابي وشارك طاقتك الطيبة مع من تحب.',
-    },
-    {
-      'label': 'هادئ',
-      'emoji': '😊',
-      'score': 8,
-      'tip': 'حالة ذهنية متوازنة وممتازة للتأمل والتركيز على أهدافك اليومية.',
-    },
-    {
-      'label': 'مستقر',
-      'emoji': '😐',
-      'score': 6,
-      'tip': 'توازن جيد. لا تتردد في أخذ استراحة قصيرة وشرب الماء لتجديد نشاطك.',
-    },
-    {
-      'label': 'مجهد',
-      'emoji': '🌧️',
-      'score': 4,
-      'tip': 'نقدر شعورك بالإرهاق. خذ نفساً عميقاً واسترخِ قليلاً، فأنت تستحق الراحة.',
-    },
-    {
-      'label': 'قلق',
-      'emoji': '💭',
-      'score': 2,
-      'tip': 'نحن معك. القلق شعور عابر، يمكنك تجربة جلسة استماع مع المساعد الذكي لتفريغ أفكارك.',
-    },
-  ];
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
-      return 'صباح الخير والسكينة ☀️';
+      return 'صباح الخير ';
     } else if (hour < 17) {
-      return 'مساء الخير والعافية 🌤️';
+      return 'مساء الخير والعافية';
     } else {
-      return 'مساء الخير والراحة 🌙';
+      return 'مساء الخير والراحة';
     }
   }
 
-  int _compareAppointments(dynamic a, dynamic b) {
-    final statusA = a['status'] ?? '';
-    final statusB = b['status'] ?? '';
-    final bool isActiveA = statusA == 'CONFIRMED' || statusA == 'PENDING';
-    final bool isActiveB = statusB == 'CONFIRMED' || statusB == 'PENDING';
+  bool _isUpcomingAppointment(dynamic a) {
+    final status = a['status'] ?? '';
+    if (status != 'CONFIRMED' && status != 'PENDING') return false;
 
-    // 1. Active appointments (CONFIRMED / PENDING) strictly rank before CANCELLED / COMPLETED
-    if (isActiveA && !isActiveB) return -1;
-    if (!isActiveA && isActiveB) return 1;
+    final dateStr = a['appointment_date']?.toString() ?? '';
+    if (dateStr.isEmpty) return false;
+
+    final endTime = a['end_time']?.toString();
+    final startTime = a['start_time']?.toString();
+    final timeStr = (endTime != null && endTime.isNotEmpty)
+        ? endTime
+        : ((startTime != null && startTime.isNotEmpty) ? startTime : '23:59:59');
+
+    DateTime? dt = DateTime.tryParse('$dateStr $timeStr') ?? DateTime.tryParse('${dateStr}T$timeStr');
+    if (dt == null) {
+      dt = DateTime.tryParse('$dateStr 23:59:59');
+    }
+    if (dt == null) return false;
+
+    return dt.isAfter(DateTime.now());
+  }
+
+  int _compareAppointments(dynamic a, dynamic b) {
+    final bool isUpcomingA = _isUpcomingAppointment(a);
+    final bool isUpcomingB = _isUpcomingAppointment(b);
+
+    // 1. Upcoming active appointments strictly rank before past/cancelled
+    if (isUpcomingA && !isUpcomingB) return -1;
+    if (!isUpcomingA && isUpcomingB) return 1;
 
     // 2. Parse date and time
     final dateStrA = '${a['appointment_date']} ${a['start_time'] ?? '00:00'}';
@@ -88,7 +75,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     final dtA = DateTime.tryParse(dateStrA) ?? DateTime(1970);
     final dtB = DateTime.tryParse(dateStrB) ?? DateTime(1970);
 
-    if (isActiveA && isActiveB) {
+    if (isUpcomingA && isUpcomingB) {
       // Nearest upcoming appointment first (ascending chronological)
       return dtA.compareTo(dtB);
     } else {
@@ -123,18 +110,6 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
     }
   }
 
-  Future<void> _recordQuickMood(int index) async {
-    setState(() => _selectedMoodIndex = index);
-    final mood = _quickMoods[index];
-    try {
-      await ApiService.post('/treatment/progress/log/', {
-        'mood_score': mood['score'],
-        'sleep_hours': 7.5,
-        'anxiety_level': (mood['score'] as int) <= 4 ? 3 : 1,
-        'notes': 'تسجيل سريع من الصفحة الرئيسية: ${mood['label']}',
-      });
-    } catch (_) {}
-  }
 
   Future<void> _cancelAppointment(String apptId) async {
     final reasonController = TextEditingController();
@@ -282,35 +257,53 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withOpacity(0.1),
-                          shape: BoxShape.circle,
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.primaryTeal.withValues(alpha: 0.15),
+                                AppTheme.oceanAzure.withValues(alpha: 0.08),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.25)),
+                          ),
+                          child: const Icon(Icons.psychology_outlined, color: AppTheme.primaryTeal, size: 22),
                         ),
-                        child: const Icon(Icons.spa_outlined, color: AppTheme.primaryTeal, size: 24),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${_getGreeting()}، $userName',
-                            style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${_getGreeting()}، $userName',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'مساحتك الآمنة للرعاية والدعم النفسي',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 11, color: AppTheme.slateMuted),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 2),
-                          const Text(
-                            'مساحتك الآمنة للراحة والتعافي 🌿',
-                            style: TextStyle(fontSize: 12, color: AppTheme.slateMuted),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       InkWell(
                         onTap: () => Navigator.push(
@@ -319,7 +312,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                         ),
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.all(9),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: AppTheme.oceanAzure.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(12),
@@ -327,22 +320,9 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                           child: const Icon(Icons.chat_outlined, size: 18, color: AppTheme.oceanAzure),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       NotificationBellButton(onOpened: _fetchDashboardData),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: _fetchDashboardData,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.all(9),
-                          decoration: BoxDecoration(
-                            color: AppTheme.slateNavy.withOpacity(0.04),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.refresh, size: 18, color: AppTheme.slateNavy),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       InkWell(
                         onTap: () async {
                           await auth.logout();
@@ -352,7 +332,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                         },
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          padding: const EdgeInsets.all(9),
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: AppTheme.alertRose.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(12),
@@ -364,109 +344,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
-
-              // Daily Mood / Wellness Check-in Bar with Dynamic Coping Tip
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'كيف تشعر في هذه اللحظة؟',
-                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
-                        ),
-                        Text(
-                          'تسجيل يومي',
-                          style: TextStyle(fontSize: 11, color: AppTheme.primaryTeal, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: List.generate(_quickMoods.length, (index) {
-                        final mood = _quickMoods[index];
-                        final isSelected = _selectedMoodIndex == index;
-                        return InkWell(
-                          onTap: () => _recordQuickMood(index),
-                          borderRadius: BorderRadius.circular(14),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppTheme.primaryTeal.withOpacity(0.12)
-                                  : AppTheme.backgroundLight,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: isSelected ? AppTheme.primaryTeal : Colors.transparent,
-                                width: 1.5,
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                Text(mood['emoji'], style: const TextStyle(fontSize: 22)),
-                                const SizedBox(height: 4),
-                                Text(
-                                  mood['label'],
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: isSelected ? AppTheme.primaryTealDark : AppTheme.slateMuted,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-                    ),
-                    if (_selectedMoodIndex != null) ...[
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryTeal.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppTheme.primaryTeal.withOpacity(0.15)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.favorite_rounded, size: 16, color: AppTheme.primaryTeal),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _quickMoods[_selectedMoodIndex!]['tip'] ?? '',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  color: AppTheme.slateNavy,
-                                  height: 1.4,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
               const SizedBox(height: 18),
+
 
               // Hero AI Companion Card (Calm Green-to-Blue Gradient)
               Container(
@@ -479,8 +358,8 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   borderRadius: BorderRadius.circular(22),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryTeal.withOpacity(0.22),
-                      blurRadius: 16,
+                      color: AppTheme.primaryTeal.withOpacity(0.24),
+                      blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
                   ],
@@ -489,27 +368,40 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.auto_awesome, color: Colors.white, size: 13),
-                          SizedBox(width: 5),
-                          Text(
-                            'المساعد الإكلينيكي الذكي',
-                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.white.withOpacity(0.3)),
                           ),
-                        ],
-                      ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.auto_awesome, color: Colors.white, size: 13),
+                              SizedBox(width: 5),
+                              Text(
+                                'المساعد الإكلينيكي الذكي',
+                                style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'جلسة الاستماع والتقييم السريري',
+                      'جلسة الاستماع والفرز الذكي',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -518,7 +410,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'تحدث بحرية وأمان لاستكشاف مشاعرك وتلخيص حالتك بسرية تامة لتقديم التوصيات المناسبة.',
+                      'تحدث بحرية وأمان لاستكشاف مشاعرك وتلخيص حالتك بسرية تامة لتقديم التوصيات الطبية وتوجيهك للأخصائي الأنسب.',
                       style: TextStyle(fontSize: 12.5, color: Colors.white70, height: 1.4),
                     ),
                     const SizedBox(height: 16),
@@ -526,7 +418,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white,
                         foregroundColor: AppTheme.primaryTealDark,
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         elevation: 0,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
@@ -537,12 +429,13 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                         );
                       },
                       icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                      label: const Text('بدء المقابلة السريرية الآن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                      label: const Text('بدء المقابلة الآن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 22),
+
 
               // Standard Clinical Assessment Scales (PHQ-9 & GAD-7)
               const Text(
@@ -560,7 +453,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                 children: [
                   Expanded(
                     child: _buildScaleCard(
-                      title: 'مقياس الاكتئاب (PHQ-9)',
+                      title: 'مقياس الاكتئاب',
                       subtitle: '9 أسئلة لتقييم المزاج والطاقة',
                       code: 'PHQ-9',
                       icon: Icons.mood_bad_outlined,
@@ -570,7 +463,7 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: _buildScaleCard(
-                      title: 'مقياس القلق (GAD-7)',
+                      title: 'مقياس القلق',
                       subtitle: '7 أسئلة لقياس درجات التوتر',
                       code: 'GAD-7',
                       icon: Icons.waves,
@@ -581,146 +474,21 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
               ),
               const SizedBox(height: 22),
 
-              // Upcoming Active Appointments Section
-              () {
-                final upcomingApps = _appointments.where((a) => a['status'] == 'CONFIRMED' || a['status'] == 'PENDING').toList();
+              // Unified Appointments Section (Segmented Upcoming vs Past)
+              _buildUnifiedAppointmentsSection(),
 
-                if (upcomingApps.isEmpty) return const SizedBox.shrink();
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.event_available_outlined, color: AppTheme.primaryTeal, size: 18),
-                            SizedBox(width: 6),
-                            Text('موعدك القادم', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.slateNavy)),
-                          ],
-                        ),
-                        if (upcomingApps.length > 1)
-                          TextButton(
-                            onPressed: () => setState(() => _showAllAppointments = !_showAllAppointments),
-                            child: Text(
-                              _showAllAppointments ? 'عرض الأقرب فقط' : 'عرض الكل (${upcomingApps.length})',
-                              style: const TextStyle(fontSize: 12, color: AppTheme.primaryTeal, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Display either nearest upcoming appointment or all upcoming
-                    ...(_showAllAppointments ? upcomingApps : [upcomingApps.first]).map((app) {
-                      final isConfirmed = app['status'] == 'CONFIRMED';
-
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.primaryTeal.withOpacity(0.08),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: const Icon(Icons.calendar_today_outlined, color: AppTheme.primaryTeal, size: 18),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'جلسة مع: ${app['doctor_details']?['title'] ?? 'د.'} ${app['doctor_details']?['full_name'] ?? 'الطبيب'}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: (isConfirmed ? AppTheme.sageGreen : AppTheme.oceanAzure).withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      isConfirmed ? '✓ مؤكد' : 'قيد الموافقة',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        color: isConfirmed ? AppTheme.sageGreen : AppTheme.oceanAzure,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'التاريخ: ${app['appointment_date']} | الوقت: ${app['start_time']}',
-                                style: const TextStyle(fontSize: 12, color: AppTheme.slateMuted),
-                              ),
-                              const SizedBox(height: 8),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.primaryTeal,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                      ),
-                                      icon: const Icon(Icons.chat_bubble_outline, size: 13),
-                                      label: const Text('محادثة الطبيب', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                      onPressed: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => ChatScreen(
-                                              otherProfileId: app['doctor']?.toString(),
-                                              otherUserName: 'د. ${app['doctor_details']?['full_name'] ?? 'الطبيب'}',
-                                              otherUserRole: 'طبيب معتمد',
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    const SizedBox(width: 8),
-                                    OutlinedButton.icon(
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppTheme.alertRose,
-                                        side: BorderSide(color: AppTheme.alertRose.withOpacity(0.3)),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                      ),
-                                      icon: const Icon(Icons.cancel_outlined, size: 13),
-                                      label: const Text('إلغاء الموعد', style: TextStyle(fontSize: 11)),
-                                      onPressed: () => _cancelAppointment(app['id']),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }),
-                    const SizedBox(height: 14),
-                  ],
-                );
-              }(),
-
-              // Recent Reports Section (Progressive Disclosure)
+              // Recent Reports Section (Progressive Disclosure with Clinical Badges)
               if (_reports.isNotEmpty) ...[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('تقاريرك النفسية السابقة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.slateNavy)),
+                    const Row(
+                      children: [
+                        Icon(Icons.assignment_turned_in_outlined, color: AppTheme.primaryTeal, size: 18),
+                        SizedBox(width: 6),
+                        Text('تقارير التقييم والفرز الذكي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.slateNavy)),
+                      ],
+                    ),
                     if (_reports.length > 1)
                       TextButton(
                         onPressed: () => setState(() => _showAllReports = !_showAllReports),
@@ -735,131 +503,418 @@ class _PatientDashboardScreenState extends State<PatientDashboardScreen> {
                 ...(_showAllReports ? _reports : [_reports.first]).map((rep) {
                   final isHigh = rep['preliminary_risk_level'] == 'HIGH';
                   final iconColor = isHigh ? AppTheme.alertRose : AppTheme.oceanAzure;
+                  final riskDisplay = rep['preliminary_risk_level_display'] ?? rep['preliminary_risk_level'] ?? 'مكتمل';
+                  final specialty = rep['recommended_specialty_display'] ?? rep['recommended_specialty'] ?? '';
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 10),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      leading: CircleAvatar(
-                        radius: 20,
-                        backgroundColor: iconColor.withOpacity(0.12),
-                        child: Icon(Icons.description_outlined, color: iconColor, size: 20),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => AIReportScreen(reportData: rep)),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(14),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 20,
+                              backgroundColor: iconColor.withOpacity(0.12),
+                              child: Icon(Icons.description_outlined, color: iconColor, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          'تقرير تقييم: $riskDisplay',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slateNavy),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'التخصص المقترح: $specialty',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primaryTeal.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('عرض', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark)),
+                                  SizedBox(width: 2),
+                                  Icon(Icons.chevron_left, size: 14, color: AppTheme.primaryTealDark),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      title: Text(
-                        'تقرير تقييم أولي (${rep['preliminary_risk_level_display'] ?? rep['preliminary_risk_level']})',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      subtitle: Text('التخصص المقترح: ${rep['recommended_specialty_display'] ?? rep['recommended_specialty']}', style: const TextStyle(fontSize: 11.5, color: AppTheme.slateMuted)),
-                      trailing: const Icon(Icons.arrow_forward_ios, size: 13, color: AppTheme.slateMuted),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => AIReportScreen(reportData: rep)),
-                        );
-                      },
                     ),
                   );
                 }),
                 const SizedBox(height: 16),
               ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-              // Collapsible Past & Cancelled Appointments (Collapsed Accordion at the bottom)
-              () {
-                final pastApps = _appointments.where((a) => a['status'] == 'CANCELLED' || a['status'] == 'COMPLETED').toList();
-                if (pastApps.isEmpty) return const SizedBox.shrink();
+  Widget _buildUnifiedAppointmentsSection() {
+    final upcomingApps = _appointments.where(_isUpcomingAppointment).toList();
+    final pastApps = _appointments.where((a) => !_isUpcomingAppointment(a)).toList();
 
-                return Card(
-                  margin: const EdgeInsets.only(top: 4, bottom: 20),
-                  elevation: 0,
-                  color: AppTheme.surfaceWhite,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    side: const BorderSide(color: AppTheme.slateLight, width: 1.2),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Section Header with Segmented Pill Switcher
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Theme(
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-                    child: ExpansionTile(
-                      initiallyExpanded: false,
-                      tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.slateNavy.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.history_outlined, size: 18, color: AppTheme.slateNavy),
-                      ),
-                      title: Text(
-                        'سجل المواعيد السابقة والملغاة (${pastApps.length})',
-                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
-                      ),
-                      subtitle: const Text(
-                        'انقر لاستعراض الجلسات المكتملة والملغاة',
-                        style: TextStyle(fontSize: 11, color: AppTheme.slateMuted),
-                      ),
+                  child: const Icon(Icons.calendar_month_outlined, color: AppTheme.primaryTeal, size: 18),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'جدول المواعيد',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                ),
+              ],
+            ),
+            // Segmented Switcher
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: AppTheme.slateLight.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildAppointmentFilterPill(
+                    label: 'القادمة (${upcomingApps.length})',
+                    index: 0,
+                  ),
+                  _buildAppointmentFilterPill(
+                    label: 'السابقة (${pastApps.length})',
+                    index: 1,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Body: Depending on tab
+        if (_appointmentsTabIndex == 0) ...[
+          if (upcomingApps.isEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceWhite,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.slateLight),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryTeal.withValues(alpha: 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.event_available_outlined, color: AppTheme.primaryTeal, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                          child: Column(
-                            children: pastApps.map((app) {
-                              final isCancelled = app['status'] == 'CANCELLED';
-                              return Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.backgroundLight,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: AppTheme.slateLight),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isCancelled ? Icons.event_busy_outlined : Icons.event_available_outlined,
-                                      size: 18,
-                                      color: isCancelled ? AppTheme.alertRose : AppTheme.slateMuted,
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'جلسة مع: ${app['doctor_details']?['title'] ?? 'د.'} ${app['doctor_details']?['full_name'] ?? 'الطبيب'}',
-                                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5),
-                                          ),
-                                          Text(
-                                            '${app['appointment_date']} (${isCancelled ? 'ملغي' : 'مكتمل'})',
-                                            style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(
-                                        color: (isCancelled ? AppTheme.alertRose : AppTheme.slateMuted).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        isCancelled ? 'ملغي' : 'مكتمل',
-                                        style: TextStyle(
-                                          fontSize: 10.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: isCancelled ? AppTheme.alertRose : AppTheme.slateMuted,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
+                        Text('لا توجد مواعيد قادمة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slateNavy)),
+                        SizedBox(height: 2),
+                        Text('احجز جلسة استشارية جديدة مع أطبائنا المعتمدين', style: TextStyle(fontSize: 11, color: AppTheme.slateMuted)),
                       ],
                     ),
                   ),
-                );
-              }(),
-            ],
+                  TextButton(
+                    onPressed: () => setState(() => _selectedNavIndex = 2),
+                    child: const Text('حجز الآن', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal)),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            ...(_showAllAppointments ? upcomingApps : [upcomingApps.first]).map((app) {
+              final isConfirmed = app['status'] == 'CONFIRMED';
+              final rawDoc = (app['doctor_details']?['full_name'] ?? 'الطبيب').toString().trim();
+              final docDisplayName = rawDoc.startsWith('د.') ? rawDoc : 'د. $rawDoc';
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                child: Padding(
+                  padding: const EdgeInsets.all(14.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryTeal.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.calendar_today_outlined, color: AppTheme.primaryTeal, size: 18),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'جلسة مع: $docDisplayName',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: (isConfirmed ? AppTheme.sageGreen : AppTheme.oceanAzure).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              isConfirmed ? 'مؤكد' : 'قيد الموافقة',
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                color: isConfirmed ? AppTheme.sageGreen : AppTheme.oceanAzure,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'التاريخ: ${app['appointment_date']} | الوقت: ${app['start_time']}',
+                        style: const TextStyle(fontSize: 12, color: AppTheme.slateMuted),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          alignment: WrapAlignment.end,
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: isConfirmed ? AppTheme.primaryTeal : AppTheme.oceanAzure,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.chat_bubble_outline, size: 14),
+                              label: Text(
+                                isConfirmed ? 'دخول الجلسة / المحادثة' : 'محادثة الطبيب',
+                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      otherProfileId: app['doctor']?.toString(),
+                                      otherUserName: 'د. ${app['doctor_details']?['full_name'] ?? 'الطبيب'}',
+                                      otherUserRole: 'طبيب معتمد',
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.alertRose,
+                                side: BorderSide(color: AppTheme.alertRose.withValues(alpha: 0.3)),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.cancel_outlined, size: 13),
+                              label: const Text('إلغاء الموعد', style: TextStyle(fontSize: 11)),
+                              onPressed: () => _cancelAppointment(app['id']),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            if (upcomingApps.length > 1)
+              Align(
+                alignment: Alignment.center,
+                child: TextButton(
+                  onPressed: () => setState(() => _showAllAppointments = !_showAllAppointments),
+                  child: Text(
+                    _showAllAppointments ? 'عرض الأقرب فقط ▴' : 'عرض كافة المواعيد القادمة (${upcomingApps.length}) ▾',
+                    style: const TextStyle(fontSize: 12, color: AppTheme.primaryTeal, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+          ],
+        ] else ...[
+          // Past Appointments Tab
+          if (pastApps.isEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceWhite,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppTheme.slateLight),
+              ),
+              child: const Center(
+                child: Text(
+                  'لا توجد مواعيد سابقة مسجلة.',
+                  style: TextStyle(fontSize: 12.5, color: AppTheme.slateMuted),
+                ),
+              ),
+            )
+          else
+            Card(
+              margin: const EdgeInsets.only(bottom: 10),
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: AppTheme.slateLight),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: pastApps.map((app) {
+                    final status = app['status'] ?? '';
+                    final isCancelled = status == 'CANCELLED';
+                    final isCompleted = status == 'COMPLETED';
+                    final statusLabel = isCancelled ? 'ملغي' : (isCompleted ? 'مكتمل' : 'منتهي');
+                    final statusColor = isCancelled ? AppTheme.alertRose : AppTheme.slateMuted;
+
+                    final rawDoc = (app['doctor_details']?['full_name'] ?? 'الطبيب').toString().trim();
+                    final docName = rawDoc.startsWith('د.') ? rawDoc : 'د. $rawDoc';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AppTheme.backgroundLight,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppTheme.slateLight),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isCancelled ? Icons.event_busy_outlined : Icons.event_available_outlined,
+                            size: 16,
+                            color: statusColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'جلسة مع: $docName',
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                ),
+                                Text(
+                                  '${app['appointment_date']} (${app['start_time'] ?? ''}) - $statusLabel',
+                                  style: const TextStyle(fontSize: 10.5, color: AppTheme.slateMuted),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+        ],
+        const SizedBox(height: 14),
+      ],
+    );
+  }
+
+  Widget _buildAppointmentFilterPill({required String label, required int index}) {
+    final isSelected = _appointmentsTabIndex == index;
+    return GestureDetector(
+      onTap: () => setState(() => _appointmentsTabIndex = index),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryTeal : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppTheme.primaryTeal.withValues(alpha: 0.25),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+            color: isSelected ? Colors.white : AppTheme.slateNavy,
           ),
         ),
       ),

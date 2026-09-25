@@ -45,21 +45,35 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
     final auth = Provider.of<AuthProvider>(context);
     final user = auth.user;
     final isPatient = user?['role'] == 'PATIENT';
+    final totalUnread = _conversations.fold<int>(0, (sum, c) => sum + ((c['unread_count'] as int?) ?? 0));
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'المحادثات السريرية المباشرة',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        title: Row(
+          children: [
+            const Text(
+              'المحادثات المباشرة',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5),
+            ),
+            if (totalUnread > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.alertRose,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$totalUnread جديدة',
+                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ],
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'تحديث',
-            onPressed: _fetchConversations,
-          ),
-          const NotificationBellButton(),
-          const SizedBox(width: 8),
+        actions: const [
+          NotificationBellButton(),
+          SizedBox(width: 8),
         ],
       ),
       body: _isLoading
@@ -74,13 +88,18 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, index) {
                         final conv = _conversations[index];
+                        final rawDocName = (conv['doctor_name'] ?? 'طبيب المنصة').toString().trim();
+                        final docFormatted = rawDocName.startsWith('د.') ? rawDocName : 'د. $rawDocName';
                         final otherName = isPatient
-                            ? (conv['doctor_name'] ?? 'طبيب المنصة')
+                            ? docFormatted
                             : (conv['patient_name'] ?? 'المريض');
                         final otherRole = isPatient ? 'طبيب معتمد' : 'مريض';
                         final lastMsg = conv['last_message'] as Map<String, dynamic>?;
                         final lastContent = lastMsg?['content']?.toString() ?? 'لا توجد رسائل سابقة';
                         final lastTimeRaw = lastMsg?['created_at']?.toString() ?? conv['updated_at']?.toString() ?? '';
+                        final unreadCount = (conv['unread_count'] as int?) ?? 0;
+                        final isDoctorUnlocked = conv['is_doctor_unlocked'] == true;
+
                         String lastTime = '';
                         if (lastTimeRaw.isNotEmpty) {
                           try {
@@ -91,10 +110,15 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
 
                         return Card(
                           elevation: 0,
-                          color: AppTheme.surfaceWhite,
+                          color: unreadCount > 0 ? AppTheme.primaryTeal.withValues(alpha: 0.04) : AppTheme.surfaceWhite,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
-                            side: BorderSide(color: Colors.grey.withValues(alpha: 0.15)),
+                            side: BorderSide(
+                              color: unreadCount > 0
+                                  ? AppTheme.primaryTeal.withValues(alpha: 0.35)
+                                  : Colors.grey.withValues(alpha: 0.15),
+                              width: unreadCount > 0 ? 1.5 : 1.0,
+                            ),
                           ),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
@@ -134,18 +158,52 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                         Row(
                                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Text(
-                                              otherName,
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 14.5,
-                                                color: AppTheme.slateNavy,
+                                            Expanded(
+                                              child: Row(
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      otherName,
+                                                      style: TextStyle(
+                                                        fontWeight: unreadCount > 0 ? FontWeight.w900 : FontWeight.bold,
+                                                        fontSize: 14.5,
+                                                        color: AppTheme.slateNavy,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (isDoctorUnlocked) ...[
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(
+                                                        color: AppTheme.sageGreen.withValues(alpha: 0.15),
+                                                        borderRadius: BorderRadius.circular(6),
+                                                      ),
+                                                      child: const Row(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          Icon(Icons.lock_open_rounded, size: 11, color: AppTheme.sageGreen),
+                                                          SizedBox(width: 3),
+                                                          Text(
+                                                            'مفتوحة للمريض',
+                                                            style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppTheme.sageGreen),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ],
                                               ),
                                             ),
                                             if (lastTime.isNotEmpty)
                                               Text(
                                                 lastTime,
-                                                style: const TextStyle(fontSize: 10.5, color: AppTheme.slateMuted),
+                                                style: TextStyle(
+                                                  fontSize: 10.5,
+                                                  fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+                                                  color: unreadCount > 0 ? AppTheme.primaryTeal : AppTheme.slateMuted,
+                                                ),
                                               ),
                                           ],
                                         ),
@@ -155,19 +213,40 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> {
                                           style: const TextStyle(fontSize: 11, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
                                         ),
                                         const SizedBox(height: 4),
-                                        Text(
-                                          lastContent,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            fontSize: 12.5,
-                                            color: lastMsg?['is_read'] == false ? AppTheme.slateNavy : AppTheme.slateMuted,
-                                            fontWeight: lastMsg?['is_read'] == false ? FontWeight.bold : FontWeight.normal,
-                                          ),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                lastContent,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 12.5,
+                                                  color: unreadCount > 0 ? AppTheme.slateNavy : AppTheme.slateMuted,
+                                                  fontWeight: unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ),
+                                            if (unreadCount > 0) ...[
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.alertRose,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                                child: Text(
+                                                  '$unreadCount',
+                                                  style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
                                         ),
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 6),
                                   const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.slateMuted),
                                 ],
                               ),

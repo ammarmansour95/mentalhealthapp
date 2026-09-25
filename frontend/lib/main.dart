@@ -8,8 +8,12 @@ import 'package:frontend/features/patient/patient_dashboard_screen.dart';
 import 'package:frontend/features/doctor_portal/doctor_dashboard_screen.dart';
 import 'package:frontend/features/admin/admin_dashboard_screen.dart';
 
-void main() {
+import 'package:frontend/core/services/native_notification_service.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await NativeNotificationService.initialize();
+  await NativeNotificationService.requestPermission();
   runApp(
     MultiProvider(
       providers: [

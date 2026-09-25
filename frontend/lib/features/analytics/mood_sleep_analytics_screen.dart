@@ -63,7 +63,7 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
         _notesController.clear();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('تم تسجيل حالتك اليومية بنجاح! تم تحديث المنحنيات البيانية 🌿'),
+            content: Text('تم تسجيل حالتك اليومية بنجاح وتحديث المنحنيات البيانية.'),
             backgroundColor: AppTheme.sageGreen,
           ),
         );
@@ -124,34 +124,17 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       // Header
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'تحليلات المزاج والنوم 🌿',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
-                              ),
-                              SizedBox(height: 2),
-                              Text(
-                                'متابعة استقرارك النفسي ونمط نومك اليومي',
-                                style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
-                              ),
-                            ],
+                          Text(
+                            'تحليلات المزاج والنوم',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
                           ),
-                          InkWell(
-                            onTap: _fetchProgressData,
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.all(9),
-                              decoration: BoxDecoration(
-                                color: AppTheme.slateNavy.withOpacity(0.04),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(Icons.refresh, size: 18, color: AppTheme.slateNavy),
-                            ),
+                          SizedBox(height: 2),
+                          Text(
+                            'متابعة استقرارك النفسي ونمط نومك اليومي',
+                            style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
                           ),
                         ],
                       ),
@@ -470,24 +453,46 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
           children: [
             const Row(
               children: [
-                Icon(Icons.edit_note, color: AppTheme.primaryTeal, size: 20),
+                Icon(Icons.edit_note, color: AppTheme.primaryTeal, size: 22),
                 SizedBox(width: 8),
                 Text('تسجيل الحالة اليومية الجديدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               ],
             ),
             const Divider(height: 20),
 
-            // Mood Slider
+            // Mood Header & Quick Emoji Selector
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('تقييم المزاج العام:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                Text(
-                  '${_getMoodEmoji(_currentMood)} $_currentMood / 10 (${_getMoodLabel(_currentMood)})',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryTeal, fontSize: 12.5),
+                const Text('تقييم المزاج العام:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryTeal.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${_getMoodEmoji(_currentMood)} $_currentMood / 10 (${_getMoodLabel(_currentMood)})',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark, fontSize: 12),
+                  ),
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                _buildQuickMoodChip(2, '😢', 'منخفض'),
+                const SizedBox(width: 6),
+                _buildQuickMoodChip(4, '🌧️', 'متراجع'),
+                const SizedBox(width: 6),
+                _buildQuickMoodChip(6, '😐', 'مستقر'),
+                const SizedBox(width: 6),
+                _buildQuickMoodChip(8, '😊', 'جيد'),
+                const SizedBox(width: 6),
+                _buildQuickMoodChip(10, '🌿', 'ممتاز'),
+              ],
+            ),
+            const SizedBox(height: 6),
             Slider(
               value: _currentMood.toDouble(),
               min: 1,
@@ -496,16 +501,23 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
               activeColor: AppTheme.primaryTeal,
               onChanged: (val) => setState(() => _currentMood = val.round()),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
             // Sleep Duration Slider
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('ساعات النوم الليلة الماضية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                Text(
-                  '$_currentSleep ساعة',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.oceanAzure, fontSize: 12.5),
+                const Text('ساعات النوم الليلة الماضية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.oceanAzure.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$_currentSleep ساعة',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.oceanAzure, fontSize: 12),
+                  ),
                 ),
               ],
             ),
@@ -517,28 +529,41 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
               activeColor: AppTheme.oceanAzure,
               onChanged: (val) => setState(() => _currentSleep = double.parse(val.toStringAsFixed(1))),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
 
-            // Fix 7: General Anxiety Level Slider
+            // General Anxiety Level Selector
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('مستوى القلق العام:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
-                Text(
-                  _getAnxietyLabel(_anxietyLevel),
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.alertRose, fontSize: 12.5),
+                const Text('مستوى القلق والتوتر:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: (_anxietyLevel == 3 ? AppTheme.alertRose : (_anxietyLevel == 2 ? const Color(0xFFF59E0B) : AppTheme.sageGreen)).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    _getAnxietyLabel(_anxietyLevel),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: _anxietyLevel == 3 ? AppTheme.alertRose : (_anxietyLevel == 2 ? const Color(0xFFD97706) : AppTheme.sageGreen),
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
               ],
             ),
-            Slider(
-              value: _anxietyLevel.toDouble(),
-              min: 1.0,
-              max: 3.0,
-              divisions: 2,
-              activeColor: AppTheme.alertRose,
-              onChanged: (val) => setState(() => _anxietyLevel = val.round()),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _buildAnxietyChip(1, 'منخفض / هادئ', AppTheme.sageGreen),
+                const SizedBox(width: 8),
+                _buildAnxietyChip(2, 'معتدل / متوسط', const Color(0xFFF59E0B)),
+                const SizedBox(width: 8),
+                _buildAnxietyChip(3, 'مرتفع / متوتر', AppTheme.alertRose),
+              ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
 
             // Journal notes
             TextField(
@@ -546,19 +571,92 @@ class _MoodSleepAnalyticsScreenState extends State<MoodSleepAnalyticsScreen> {
               maxLines: 2,
               decoration: const InputDecoration(
                 labelText: 'ملاحظات يومية أو أحداث أثرت على مزاجك (اختياري)',
-                hintText: 'مثال: شعرت بالراحة بعد ممارسة رياضة المشي...',
+                hintText: 'مثال: شعرت بالراحة بعد ممارسة رياضة المشي والتأمل...',
               ),
             ),
             const SizedBox(height: 16),
 
             ElevatedButton.icon(
               onPressed: _isLogging ? null : _submitDailyLog,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
               icon: _isLogging
                   ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.check_circle_outline, size: 16),
-              label: const Text('حفظ وتسجيل اليوم', style: TextStyle(fontSize: 13.5)),
+                  : const Icon(Icons.check_circle_outline, size: 18),
+              label: const Text('حفظ وتسجيل الحالة اليومية', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickMoodChip(int targetScore, String emoji, String label) {
+    final isSelected = (_currentMood - targetScore).abs() <= 1;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _currentMood = targetScore),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.primaryTeal.withOpacity(0.12) : AppTheme.slateNavy.withOpacity(0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? AppTheme.primaryTeal : AppTheme.slateLight,
+              width: isSelected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 18)),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected ? AppTheme.primaryTealDark : AppTheme.slateMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnxietyChip(int level, String label, Color color) {
+    final isSelected = _anxietyLevel == level;
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _anxietyLevel = level),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.12) : AppTheme.slateNavy.withOpacity(0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? color : AppTheme.slateLight,
+              width: isSelected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? color : AppTheme.slateNavy,
+              ),
+            ),
+          ),
         ),
       ),
     );

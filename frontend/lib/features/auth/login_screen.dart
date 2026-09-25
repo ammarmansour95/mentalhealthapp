@@ -274,9 +274,16 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: AppTheme.sageGreen.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        '💡 تجريبي: اضغط لتعبئة رمز الاختبار السريع ($devOtp)',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.sageGreen),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.touch_app_outlined, size: 14, color: AppTheme.sageGreen),
+                          const SizedBox(width: 4),
+                          Text(
+                            'رمز الاختبار السريع: $devOtp',
+                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.sageGreen),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -372,45 +379,91 @@ class _LoginScreenState extends State<LoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Brand Icon
+                // Clinical Brand Logo & Emblem
                 Center(
                   child: Container(
-                    width: 68,
-                    height: 68,
+                    width: 76,
+                    height: 76,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryTeal.withValues(alpha: 0.1),
+                      gradient: LinearGradient(
+                        colors: [
+                          AppTheme.primaryTeal.withValues(alpha: 0.15),
+                          AppTheme.oceanAzure.withValues(alpha: 0.08),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
                       shape: BoxShape.circle,
+                      border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.25), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.primaryTeal.withValues(alpha: 0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    child: const Icon(
-                      Icons.spa_outlined,
-                      size: 38,
-                      color: AppTheme.primaryTeal,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        const Icon(
+                          Icons.psychology_outlined,
+                          size: 42,
+                          color: AppTheme.primaryTeal,
+                        ),
+                        Positioned(
+                          right: 12,
+                          bottom: 12,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              color: AppTheme.sageGreen,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.check, size: 10, color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
                 // Platform Title & Slogan
                 const Text(
-                  'منصة الرعاية النفسية والتشخيص الذكي',
+                  'منصة الرعاية النفسية والتقييم الذكي',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 19,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.slateNavy,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'مساحة آمنة للتقييم الأولي والاستشارات السريرية المعتمدة 🌿',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.slateMuted,
-                    height: 1.4,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryTealLight.withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
+                      ),
+                      child: const Text(
+                        'الذكاء الاصطناعي',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'منظومة الفرز والرعاية النفسية',
+                      style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
 
                 // Card Container for Auth
                 Card(
@@ -518,7 +571,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 20),
+                              const SizedBox(height: 8),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton(
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('لاستعادة كلمة المرور، يرجى التواصل مع الدعم الفني أو الطبيب المشرف.'),
+                                        backgroundColor: AppTheme.primaryTeal,
+                                      ),
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                                  child: const Text(
+                                    'نسيت كلمة المرور؟',
+                                    style: TextStyle(fontSize: 11.5, color: AppTheme.primaryTealDark, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
                               ElevatedButton(
                                 onPressed: _isSubmitting ? null : _submitLogin,
                                 style: ElevatedButton.styleFrom(
@@ -671,35 +743,56 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
 
-                const SizedBox(height: 20),
-                // Quick Demo Account Buttons with exact database passwords
-                const Text(
-                  'أو اختر أحد الحسابات التجريبية للتجربة السريعة:',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    ActionChip(
-                      avatar: const Icon(Icons.person, size: 15, color: AppTheme.primaryTeal),
-                      label: const Text('مريض (Patient)', style: TextStyle(fontSize: 11.5)),
-                      onPressed: () => _fillDemo('patient@mentalhealth.com', 'Pass@123', 'PATIENT'),
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.medical_services, size: 15, color: AppTheme.oceanAzure),
-                      label: const Text('طبيب معتمد (Doctor)', style: TextStyle(fontSize: 11.5)),
-                      onPressed: () => _fillDemo('dr.sarah@mentalhealth.com', 'Pass@123', 'DOCTOR'),
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.admin_panel_settings, size: 15, color: AppTheme.slateNavy),
-                      label: const Text('مدير المنصة (Admin)', style: TextStyle(fontSize: 11.5)),
-                      onPressed: () => _fillDemo('admin@mentalhealth.com', 'Admin@123', 'ADMIN'),
-                    ),
-                  ],
+                const SizedBox(height: 18),
+                // Demo Account Quick Fill Card (Professional Evaluation Mode)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.slateLight.withValues(alpha: 0.6),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                  ),
+                  child: Column(
+                    children: [
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.touch_app_outlined, size: 14, color: AppTheme.slateMuted),
+                          SizedBox(width: 6),
+                          Text(
+                            'حسابات العرض والتحكيم السريع (Evaluation Accounts):',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.slateMuted),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          ActionChip(
+                            avatar: const Icon(Icons.person, size: 14, color: AppTheme.primaryTeal),
+                            label: const Text('مريض (Patient)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            backgroundColor: Colors.white,
+                            onPressed: () => _fillDemo('patient@mentalhealth.com', 'Pass@123', 'PATIENT'),
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.medical_services, size: 14, color: AppTheme.oceanAzure),
+                            label: const Text('طبيب معتمد (Doctor)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            backgroundColor: Colors.white,
+                            onPressed: () => _fillDemo('dr.sarah@mentalhealth.com', 'Pass@123', 'DOCTOR'),
+                          ),
+                          ActionChip(
+                            avatar: const Icon(Icons.admin_panel_settings, size: 14, color: AppTheme.slateNavy),
+                            label: const Text('إدارة المنصة (Admin)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            backgroundColor: Colors.white,
+                            onPressed: () => _fillDemo('admin@mentalhealth.com', 'Admin@123', 'ADMIN'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -709,3 +802,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+

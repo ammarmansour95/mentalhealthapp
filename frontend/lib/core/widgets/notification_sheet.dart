@@ -167,7 +167,7 @@ class _NotificationSheetState extends State<NotificationSheet> {
             const SizedBox(width: 10),
             const Expanded(
               child: Text(
-                '🚨 بلاغ طوارئ سريرية حرجة',
+                'بلاغ طوارئ سريرية حرجة',
                 style: TextStyle(
                   fontSize: 15.5,
                   fontWeight: FontWeight.bold,
@@ -481,7 +481,7 @@ class _NotificationSheetState extends State<NotificationSheet> {
                                                   Icon(Icons.warning_amber_rounded, size: 12, color: AppTheme.alertRose),
                                                   SizedBox(width: 4),
                                                   Text(
-                                                    '🚨 تنبيه حرج: اضغط لعرض هاتف المريض وبيانات التدخل',
+                                                    'تنبيه حرج: اضغط لعرض هاتف المريض وبيانات التدخل',
                                                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.alertRose),
                                                   ),
                                                 ],
@@ -503,7 +503,7 @@ class _NotificationSheetState extends State<NotificationSheet> {
                                               ),
                                               Text(
                                                 isCrisis
-                                                    ? 'عرض تفاصيل الطوارئ 👁️'
+                                                    ? 'عرض تفاصيل الطوارئ'
                                                     : (!isRead ? 'اضغط للتعليم كمقروء' : ''),
                                                 style: TextStyle(
                                                   fontSize: 10,

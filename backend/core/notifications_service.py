@@ -56,17 +56,37 @@ def notify_doctor_new_appointment(appointment):
     )
 
 
+def notify_patient_appointment_booked(appointment):
+    """Notifies the patient that their appointment booking request has been submitted."""
+    raw_doctor_name = appointment.doctor.user.get_full_name() if appointment.doctor and appointment.doctor.user else 'الطبيب'
+    doctor_name = raw_doctor_name if raw_doctor_name.startswith('د.') else f"د. {raw_doctor_name}"
+    date_str = appointment.appointment_date.strftime('%Y-%m-%d')
+    time_str = appointment.start_time.strftime('%H:%M')
+
+    title = f"طلب موعد مع {doctor_name} ⏳"
+    message = f"تم إرسال طلب حجز موعدك مع {doctor_name} بتاريخ {date_str} الساعة {time_str} بنجاح، وهو قيد انتظار موافقة وتأكيد الطبيب."
+
+    return send_notification(
+        recipient=appointment.patient.user,
+        title=title,
+        message=message,
+        notification_type='APPOINTMENT_REQUESTED',
+        metadata={'appointment_id': str(appointment.id), 'doctor_id': str(appointment.doctor.id)}
+    )
+
+
 def notify_appointment_status_change(appointment, new_status: str, cancelled_by=None, reason: str = ''):
     """Notifies patient or doctor when appointment status changes."""
     date_str = appointment.appointment_date.strftime('%Y-%m-%d')
     time_str = appointment.start_time.strftime('%H:%M')
-    doctor_name = appointment.doctor.user.get_full_name() if appointment.doctor and appointment.doctor.user else 'طبيب'
+    raw_doctor_name = appointment.doctor.user.get_full_name() if appointment.doctor and appointment.doctor.user else 'طبيب'
+    doctor_name = raw_doctor_name if raw_doctor_name.startswith('د.') else f"د. {raw_doctor_name}"
     patient_name = appointment.patient.user.get_full_name() if appointment.patient and appointment.patient.user else 'مريض'
 
     if new_status == 'CONFIRMED':
         # Notify Patient
-        title = "تم تأكيد موعدك بنجاح ✓"
-        message = f"قام د. {doctor_name} بقبول وتأكيد موعد جلستك بتاريخ {date_str} الساعة {time_str}. نتمنى لك جلسة مثمرة ومفيدة."
+        title = f"تم تأكيد موعدك مع {doctor_name} ✓"
+        message = f"قام {doctor_name} بقبول وتأكيد موعد جلستك بتاريخ {date_str} الساعة {time_str}. نتمنى لك جلسة مثمرة ومفيدة."
         return send_notification(
             recipient=appointment.patient.user,
             title=title,
@@ -91,8 +111,8 @@ def notify_appointment_status_change(appointment, new_status: str, cancelled_by=
         else:
             # Doctor/Admin cancelled -> Notify Patient
             reason_snippet = f" (السبب: {reason})" if reason else ""
-            title = "تم إلغاء الموعد 🚫"
-            message = f"نعتذر منك، تم إلغاء موعدك مع د. {doctor_name} بتاريخ {date_str} الساعة {time_str}{reason_snippet}."
+            title = f"تم إلغاء الموعد مع {doctor_name} 🚫"
+            message = f"نعتذر منك، تم إلغاء موعدك مع {doctor_name} بتاريخ {date_str} الساعة {time_str}{reason_snippet}."
             return send_notification(
                 recipient=appointment.patient.user,
                 title=title,
@@ -159,8 +179,9 @@ def generate_session_reminders():
     created_count = 0
     for appt in today_confirmed_appts:
         time_str = appt.start_time.strftime('%H:%M')
-        doctor_name = appt.doctor.user.get_full_name()
-        patient_name = appt.patient.user.get_full_name()
+        raw_doctor = (appt.doctor.user.get_full_name() if appt.doctor and appt.doctor.user else 'الطبيب').strip()
+        doctor_name = raw_doctor if raw_doctor.startswith('د.') else f"د. {raw_doctor}"
+        patient_name = appt.patient.user.get_full_name() if appt.patient and appt.patient.user else 'المريض'
 
         # Check if reminder already sent today
         already_sent = Notification.objects.filter(
@@ -175,7 +196,7 @@ def generate_session_reminders():
             send_notification(
                 recipient=appt.patient.user,
                 title="تذكير بموعد الجلسة اليوم ⏰",
-                message=f"تذكير: موعد جلستك العلاجية مع د. {doctor_name} اليوم الساعة {time_str}. نتمنى لك جلسة مفيدة.",
+                message=f"تذكير: موعد جلستك العلاجية مع {doctor_name} اليوم الساعة {time_str}. نتمنى لك جلسة مفيدة.",
                 notification_type='SESSION_REMINDER',
                 metadata={'appointment_id': str(appt.id)}
             )

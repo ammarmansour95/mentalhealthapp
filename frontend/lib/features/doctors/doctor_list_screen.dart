@@ -257,18 +257,6 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
                       ),
                     ],
                   ),
-                  InkWell(
-                    onTap: _fetchDoctors,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppTheme.slateNavy.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(Icons.refresh, size: 20, color: AppTheme.slateNavy),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -413,7 +401,14 @@ class _DoctorListScreenState extends State<DoctorListScreen> {
                                 color: AppTheme.sageGreen.withOpacity(0.12),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: const Text('✓ معتمد', style: TextStyle(fontSize: 9.5, color: AppTheme.sageGreen, fontWeight: FontWeight.bold)),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.verified_outlined, size: 11, color: AppTheme.sageGreen),
+                                  SizedBox(width: 3),
+                                  Text('معتمد', style: TextStyle(fontSize: 9.5, color: AppTheme.sageGreen, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
                             ),
                           ],
                         ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:frontend/core/services/api_service.dart';
 
 class AuthProvider extends ChangeNotifier {

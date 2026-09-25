@@ -101,10 +101,11 @@ class BookAppointmentView(APIView):
             details={'appointment_id': str(appointment.id), 'doctor': doctor.user.email}
         )
 
-        # Send Real-time In-App Notification to Doctor
+        # Send Real-time In-App Notification to Doctor and Patient
         try:
-            from core.notifications_service import notify_doctor_new_appointment
+            from core.notifications_service import notify_doctor_new_appointment, notify_patient_appointment_booked
             notify_doctor_new_appointment(appointment)
+            notify_patient_appointment_booked(appointment)
         except Exception:
             pass
 

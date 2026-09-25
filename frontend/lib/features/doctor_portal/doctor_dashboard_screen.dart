@@ -9,6 +9,7 @@ import 'package:frontend/core/widgets/notification_bell_button.dart';
 import 'package:frontend/features/auth/login_screen.dart';
 import 'package:frontend/features/messaging/chat_screen.dart';
 import 'package:frontend/features/messaging/conversations_list_screen.dart';
+import 'package:frontend/features/reports/ai_report_screen.dart';
 
 class DoctorDashboardScreen extends StatefulWidget {
   const DoctorDashboardScreen({super.key});
@@ -27,6 +28,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
   bool _isSubmittingCredentials = false;
   int _selectedDoctorTab = 0; // 0: Appointments, 1: AI Reports & Assessments, 2: Schedule & Profile
   String _appointmentStatusFilter = 'ALL'; // 'ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED'
+  String _reportTriageFilter = 'ALL'; // 'ALL', 'CRISIS', 'PENDING_REVIEW', 'REVIEWED'
 
   // Onboarding / Credentialing Form Controllers
   String _selectedSpecialty = 'CBT_SPECIALIST';
@@ -905,43 +907,53 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: (isVerified ? AppTheme.sageGreen : AppTheme.oceanAzure).withOpacity(0.12),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  isVerified ? Icons.verified_user_outlined : Icons.pending_outlined,
-                                  color: isVerified ? AppTheme.sageGreen : AppTheme.oceanAzure,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'د. $doctorName',
-                                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 42,
+                                  height: 42,
+                                  decoration: BoxDecoration(
+                                    color: (isVerified ? AppTheme.sageGreen : AppTheme.oceanAzure).withOpacity(0.12),
+                                    shape: BoxShape.circle,
                                   ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    isVerified ? '✓ طبيب معتمد ومصرح' : 'حساب قيد الاعتماد والمراجعة',
-                                    style: TextStyle(
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: isVerified ? AppTheme.sageGreen : AppTheme.oceanAzure,
-                                    ),
+                                  child: Icon(
+                                    isVerified ? Icons.verified_user_outlined : Icons.pending_outlined,
+                                    color: isVerified ? AppTheme.sageGreen : AppTheme.oceanAzure,
+                                    size: 22,
                                   ),
-                                ],
-                              ),
-                            ],
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'د. $doctorName',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        isVerified ? 'طبيب معتمد ومصرح' : 'حساب قيد الاعتماد والمراجعة',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: isVerified ? AppTheme.sageGreen : AppTheme.oceanAzure,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               InkWell(
                                 onTap: () => Navigator.push(
@@ -950,7 +962,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                 ),
                                 borderRadius: BorderRadius.circular(12),
                                 child: Container(
-                                  padding: const EdgeInsets.all(9),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: AppTheme.oceanAzure.withOpacity(0.08),
                                     borderRadius: BorderRadius.circular(12),
@@ -958,22 +970,9 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                   child: const Icon(Icons.chat_outlined, size: 18, color: AppTheme.oceanAzure),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               NotificationBellButton(onOpened: _fetchDoctorData),
-                              const SizedBox(width: 8),
-                              InkWell(
-                                onTap: _fetchDoctorData,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  padding: const EdgeInsets.all(9),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.slateNavy.withOpacity(0.04),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Icon(Icons.refresh, size: 18, color: AppTheme.slateNavy),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               InkWell(
                                 onTap: () async {
                                   await auth.logout();
@@ -983,7 +982,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                 },
                                 borderRadius: BorderRadius.circular(12),
                                 child: Container(
-                                  padding: const EdgeInsets.all(9),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: AppTheme.alertRose.withOpacity(0.08),
                                     borderRadius: BorderRadius.circular(12),
@@ -1068,7 +1067,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '🚨 تنبيه طوارئ سريرية حرجة (${urgentReports.length} حالات في خطر مرتفع)',
+                      'تنبيه طوارئ سريرية حرجة (${urgentReports.length} حالات في خطر مرتفع)',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.alertRose),
                     ),
                     const SizedBox(height: 2),
@@ -1094,7 +1093,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                   setState(() => _selectedDoctorTab = 1);
                 },
                 icon: const Icon(Icons.psychology_outlined, size: 16),
-                label: const Text('الانتقال للتقارير السريرية 👁️', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                label: const Text('الانتقال للتقارير السريرية', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
@@ -1235,13 +1234,13 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             children: [
               _buildApptFilterChip('ALL', 'الكل (${_appointments.length})'),
               const SizedBox(width: 6),
-              _buildApptFilterChip('PENDING', '⏳ قيد الموافقة (${pendingList.length})', isHighlight: pendingList.isNotEmpty),
+              _buildApptFilterChip('PENDING', 'قيد الموافقة (${pendingList.length})', isHighlight: pendingList.isNotEmpty),
               const SizedBox(width: 6),
-              _buildApptFilterChip('CONFIRMED', '📅 المؤكدة (${confirmedList.length})'),
+              _buildApptFilterChip('CONFIRMED', 'المؤكدة (${confirmedList.length})'),
               const SizedBox(width: 6),
-              _buildApptFilterChip('COMPLETED', '✅ المكتملة (${completedList.length})'),
+              _buildApptFilterChip('COMPLETED', 'المكتملة (${completedList.length})'),
               const SizedBox(width: 6),
-              _buildApptFilterChip('CANCELLED', '🚫 الملغية (${cancelledList.length})'),
+              _buildApptFilterChip('CANCELLED', 'الملغية (${cancelledList.length})'),
             ],
           ),
         ),
@@ -1324,10 +1323,10 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           ),
                           child: Text(
                             isHighRisk
-                                ? '🔴 خطورة مرتفعة'
+                                ? 'خطورة مرتفعة'
                                 : isModRisk
-                                    ? '🟡 خطورة متوسطة'
-                                    : '🟢 حالة مستقرة',
+                                    ? 'خطورة متوسطة'
+                                    : 'حالة مستقرة',
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.bold,
@@ -1355,7 +1354,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           ),
                           child: Text(
                             isConfirmed
-                                ? '✓ مؤكد'
+                                ? 'مؤكد'
                                 : isPending
                                     ? 'قيد الموافقة'
                                     : isCompleted
@@ -1396,6 +1395,106 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                         ),
                       ],
                     ),
+
+                    // Attached AI Triage Report Badge (If Available)
+                    () {
+                      final matchingReport = _reports.cast<dynamic>().firstWhere(
+                        (r) => (r is Map) && (
+                          (r['patient_email'] != null && app['patient_email'] != null && r['patient_email'].toString().trim().toLowerCase() == app['patient_email'].toString().trim().toLowerCase()) ||
+                          (r['patient_id'] != null && (r['patient_id'].toString() == (app['patient']?.toString() ?? app['patient_id']?.toString())))
+                        ),
+                        orElse: () => null,
+                      );
+
+                      if (matchingReport == null) return const SizedBox.shrink();
+
+                      final repMap = matchingReport as Map<String, dynamic>;
+                      final rRisk = repMap['preliminary_risk_level'] ?? 'LOW';
+                      final bool isRepHigh = rRisk == 'HIGH';
+                      final bool isRepMod = rRisk == 'MODERATE';
+
+                      return InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => AIReportScreen(reportData: repMap),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          margin: const EdgeInsets.only(top: 8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryTeal.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppTheme.primaryTeal.withOpacity(0.22)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.analytics_outlined, size: 15, color: AppTheme.primaryTeal),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Flexible(
+                                      child: Text(
+                                        'تقرير الفرز الذكي',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: (isRepHigh
+                                                ? AppTheme.alertRose
+                                                : isRepMod
+                                                    ? AppTheme.oceanAzure
+                                                    : AppTheme.sageGreen)
+                                            .withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        isRepHigh
+                                            ? 'خطر مرتفع'
+                                            : isRepMod
+                                                ? 'خطر متوسط'
+                                                : 'مستقر',
+                                        style: TextStyle(
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: isRepHigh
+                                              ? AppTheme.alertRose
+                                              : isRepMod
+                                                  ? AppTheme.oceanAzure
+                                                  : AppTheme.sageGreen,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'عرض',
+                                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                                  ),
+                                  SizedBox(width: 2),
+                                  Icon(Icons.chevron_left, size: 14, color: AppTheme.primaryTeal),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }(),
 
                     // Patient Notes if any
                     if (app['patient_notes'] != null && (app['patient_notes'] as String).isNotEmpty) ...[
@@ -1440,7 +1539,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                             Expanded(
                               child: Text(
                                 isPatientCancelled
-                                    ? '⚠️ أُلغي من قِبل المريض: ${app['cancellation_reason'] ?? 'بدون سبب معلن'}'
+                                    ? 'أُلغي من قِبل المريض: ${app['cancellation_reason'] ?? 'بدون سبب معلن'}'
                                     : 'أُلغي من قِبل الطبيب/الإدارة: ${app['cancellation_reason'] ?? 'تم الإلغاء'}',
                                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.alertRose),
                               ),
@@ -1651,6 +1750,19 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
     });
 
     final patientList = patientGroups.values.toList();
+    final totalPatients = patientList.length;
+    final crisisPatients = patientList.where((p) => p['highest_risk'] == 'HIGH').length;
+    final pendingReviewPatients = patientList.where((p) => (p['reports'] as List).any((r) => r['is_reviewed_by_doctor'] != true)).length;
+    final reviewedPatients = patientList.where((p) => (p['reports'] as List).isNotEmpty && (p['reports'] as List).every((r) => r['is_reviewed_by_doctor'] == true)).length;
+
+    List<Map<String, dynamic>> displayedPatients = patientList;
+    if (_reportTriageFilter == 'CRISIS') {
+      displayedPatients = patientList.where((p) => p['highest_risk'] == 'HIGH').toList();
+    } else if (_reportTriageFilter == 'PENDING_REVIEW') {
+      displayedPatients = patientList.where((p) => (p['reports'] as List).any((r) => r['is_reviewed_by_doctor'] != true)).toList();
+    } else if (_reportTriageFilter == 'REVIEWED') {
+      displayedPatients = patientList.where((p) => (p['reports'] as List).isNotEmpty && (p['reports'] as List).every((r) => r['is_reviewed_by_doctor'] == true)).toList();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1669,7 +1781,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'سجلات المرضى والمقاييس السريرية (${patientList.length} مرضى مسجلين)',
+                  'سجلات المرضى والمقاييس السريرية ($totalPatients مرضى مسجلين)',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.primaryTealDark),
                 ),
               ),
@@ -1677,10 +1789,71 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 10),
+
+        // Triage Filter Chips
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ChoiceChip(
+                label: Text('الكل ($totalPatients)', style: TextStyle(fontSize: 11, fontWeight: _reportTriageFilter == 'ALL' ? FontWeight.bold : FontWeight.normal, color: _reportTriageFilter == 'ALL' ? Colors.white : AppTheme.slateNavy)),
+                selected: _reportTriageFilter == 'ALL',
+                selectedColor: AppTheme.primaryTeal,
+                backgroundColor: AppTheme.slateLight,
+                onSelected: (val) {
+                  if (val) setState(() => _reportTriageFilter = 'ALL');
+                },
+              ),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: Text('حالات حرجة ($crisisPatients)', style: TextStyle(fontSize: 11, fontWeight: _reportTriageFilter == 'CRISIS' ? FontWeight.bold : FontWeight.normal, color: _reportTriageFilter == 'CRISIS' ? Colors.white : AppTheme.alertRose)),
+                selected: _reportTriageFilter == 'CRISIS',
+                selectedColor: AppTheme.alertRose,
+                backgroundColor: AppTheme.alertRose.withOpacity(0.08),
+                onSelected: (val) {
+                  if (val) setState(() => _reportTriageFilter = 'CRISIS');
+                },
+              ),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: Text('قيد المراجعة ($pendingReviewPatients)', style: TextStyle(fontSize: 11, fontWeight: _reportTriageFilter == 'PENDING_REVIEW' ? FontWeight.bold : FontWeight.normal, color: _reportTriageFilter == 'PENDING_REVIEW' ? Colors.white : AppTheme.oceanAzure)),
+                selected: _reportTriageFilter == 'PENDING_REVIEW',
+                selectedColor: AppTheme.oceanAzure,
+                backgroundColor: AppTheme.oceanAzure.withOpacity(0.08),
+                onSelected: (val) {
+                  if (val) setState(() => _reportTriageFilter = 'PENDING_REVIEW');
+                },
+              ),
+              const SizedBox(width: 6),
+              ChoiceChip(
+                label: Text('معتمدة ($reviewedPatients)', style: TextStyle(fontSize: 11, fontWeight: _reportTriageFilter == 'REVIEWED' ? FontWeight.bold : FontWeight.normal, color: _reportTriageFilter == 'REVIEWED' ? Colors.white : AppTheme.sageGreen)),
+                selected: _reportTriageFilter == 'REVIEWED',
+                selectedColor: AppTheme.sageGreen,
+                backgroundColor: AppTheme.sageGreen.withOpacity(0.08),
+                onSelected: (val) {
+                  if (val) setState(() => _reportTriageFilter = 'REVIEWED');
+                },
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 12),
 
         // Grouped Patient Cards
-        ...patientList.map((group) {
+        if (displayedPatients.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Center(
+              child: Text('لا توجد سجلات تطابق هذا الفلتر حالياً.', style: TextStyle(color: AppTheme.slateMuted, fontSize: 12.5)),
+            ),
+          )
+        else
+          ...displayedPatients.map((group) {
           final pName = group['patient_name'] as String;
           final reports = group['reports'] as List<dynamic>;
           final assessments = group['assessments'] as List<dynamic>;
@@ -1749,10 +1922,10 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                           ),
                           child: Text(
                             isHigh
-                                ? '🔴 خطورة مرتفعة'
+                                ? 'خطورة مرتفعة'
                                 : isMod
-                                    ? '🟡 خطورة متوسطة'
-                                    : '🟢 حالة مستقرة',
+                                    ? 'خطورة متوسطة'
+                                    : 'حالة مستقرة',
                             style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.bold,
@@ -1770,29 +1943,31 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: AppTheme.slateLight,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                '📊 $totalTests فحوصات (${reports.length} ذكاء اصطناعي + ${assessments.length} مقاييس)',
-                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
-                              ),
+                        Flexible(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.slateLight,
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                          ],
+                            child: Text(
+                              '$totalTests فحوصات (${reports.length} ذكاء + ${assessments.length} مقاييس)',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                            ),
+                          ),
                         ),
+                        const SizedBox(width: 6),
                         const Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              'عرض السجل السريري الشامل',
-                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                              'السجل الشامل',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
                             ),
-                            SizedBox(width: 4),
-                            Icon(Icons.arrow_forward_ios, size: 12, color: AppTheme.primaryTeal),
+                            SizedBox(width: 2),
+                            Icon(Icons.chevron_left, size: 14, color: AppTheme.primaryTeal),
                           ],
                         ),
                       ],
@@ -1999,7 +2174,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                isHigh ? '🔴 خطورة مرتفعة' : isMod ? '🟡 خطورة متوسطة' : '🟢 حالة مستقرة',
+                                                isHigh ? 'خطورة مرتفعة' : isMod ? 'خطورة متوسطة' : 'حالة مستقرة',
                                                 style: TextStyle(
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.bold,
@@ -2019,8 +2194,11 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                           style: const TextStyle(fontSize: 12, height: 1.4, color: AppTheme.slateNavy),
                                         ),
                                         const SizedBox(height: 12),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        Wrap(
+                                          alignment: WrapAlignment.spaceBetween,
+                                          crossAxisAlignment: WrapCrossAlignment.center,
+                                          spacing: 8,
+                                          runSpacing: 8,
                                           children: [
                                             Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -2029,7 +2207,7 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                isReviewed ? '✓ تم التقييم والاعتماد' : '⏳ قيد المراجعة',
+                                                isReviewed ? 'تم التقييم والاعتماد' : 'قيد المراجعة',
                                                 style: TextStyle(
                                                   fontSize: 10,
                                                   fontWeight: FontWeight.bold,
@@ -2037,19 +2215,43 @@ class _DoctorDashboardScreenState extends State<DoctorDashboardScreen> {
                                                 ),
                                               ),
                                             ),
-                                            ElevatedButton.icon(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: AppTheme.primaryTeal,
-                                                foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                              ),
-                                              onPressed: () {
-                                                Navigator.pop(ctx);
-                                                _openReportReviewModal(rep);
-                                              },
-                                              icon: const Icon(Icons.rate_review_outlined, size: 14),
-                                              label: Text(isReviewed ? 'تعديل الملاحظات' : 'مراجعة وكتابة التقييم', style: const TextStyle(fontSize: 11.5)),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                OutlinedButton.icon(
+                                                  style: OutlinedButton.styleFrom(
+                                                    foregroundColor: AppTheme.primaryTeal,
+                                                    side: BorderSide(color: AppTheme.primaryTeal.withOpacity(0.35)),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                  ),
+                                                  onPressed: () {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (_) => AIReportScreen(reportData: rep),
+                                                      ),
+                                                    );
+                                                  },
+                                                  icon: const Icon(Icons.description_outlined, size: 13),
+                                                  label: const Text('التقرير الكامل', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                ElevatedButton.icon(
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor: AppTheme.primaryTeal,
+                                                    foregroundColor: Colors.white,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                                  ),
+                                                  onPressed: () {
+                                                    Navigator.pop(ctx);
+                                                    _openReportReviewModal(rep);
+                                                  },
+                                                  icon: const Icon(Icons.rate_review_outlined, size: 13),
+                                                  label: Text(isReviewed ? 'تعديل الملاحظات' : 'مراجعة وتوثيق', style: const TextStyle(fontSize: 10.5)),
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),

@@ -193,7 +193,7 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'سلامتك وأمانك أولويتنا القصوى 🌿',
+                'سلامتك وأمانك أولويتنا القصوى',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.alertRose),
               ),
             ),
@@ -261,6 +261,43 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
             },
             icon: const Icon(Icons.medical_services, size: 16),
             label: const Text('حجز استشارة عاجلة مع طبيب'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmEarlyFinish() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: const Row(
+          children: [
+            Icon(Icons.assignment_turned_in_outlined, color: AppTheme.primaryTeal, size: 22),
+            SizedBox(width: 8),
+            Text('إتمام المقابلة وإصدار التقرير', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'هل ترغب في إنهاء المقابلة الآن وتوليد التقرير الطبي التحليلي بناءً على الإفادات المسجلة حتى اللحظة؟',
+          style: TextStyle(fontSize: 13, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('متابعة الحديث', style: TextStyle(color: AppTheme.slateMuted)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryTeal,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _completeAndGenerateReport();
+            },
+            child: const Text('توليد التقرير الطبي', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -353,44 +390,75 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: AppTheme.surfaceWhite,
+        titleSpacing: 0,
         title: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(7),
               decoration: BoxDecoration(
-                color: AppTheme.primaryTeal.withOpacity(0.1),
+                gradient: LinearGradient(
+                  colors: [
+                    AppTheme.primaryTeal.withValues(alpha: 0.15),
+                    AppTheme.oceanAzure.withValues(alpha: 0.08),
+                  ],
+                ),
                 shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.2)),
               ),
-              child: const Icon(Icons.spa_outlined, color: AppTheme.primaryTeal, size: 18),
+              child: const Icon(Icons.psychology_outlined, color: AppTheme.primaryTeal, size: 20),
             ),
-            const SizedBox(width: 10),
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'المساعد الإكلينيكي الذكي',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
-                ),
-                Text(
-                  'مساحة آمنة ومحمية بالكامل 🌿',
-                  style: TextStyle(fontSize: 11, color: AppTheme.slateMuted),
-                ),
-              ],
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'المساعد الذكي',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
+                  ),
+                  Text(
+                    'تقييم وتوجيه آمن',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 10.5, color: AppTheme.slateMuted),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
+        actions: [
+          if (_sessionId != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 12),
+              child: TextButton.icon(
+                style: TextButton.styleFrom(
+                  backgroundColor: AppTheme.primaryTeal.withValues(alpha: 0.08),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: _isCompleting ? null : _confirmEarlyFinish,
+                icon: const Icon(Icons.assignment_turned_in_outlined, size: 14, color: AppTheme.primaryTeal),
+                label: const Text('التقرير', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark)),
+              ),
+            ),
+        ],
       ),
+
       body: _isInitializing
-          ? Center(
+          ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const CircularProgressIndicator(color: AppTheme.primaryTeal),
-                  const SizedBox(height: 16),
+                  CircularProgressIndicator(color: AppTheme.primaryTeal),
+                  SizedBox(height: 16),
                   Text(
-                    'جاري إعداد جلستك السريرية الآمنة...',
+                    'جاري إعداد جلستك الآمنة...',
                     style: TextStyle(fontSize: 13.5, color: AppTheme.slateMuted),
                   ),
                 ],
@@ -398,10 +466,10 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
             )
           : Column(
               children: [
-                // Top Progress Tracker - consistent with Main Dashboard card styling
+                // Top Progress Tracker & Live Indicator
                 Container(
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceWhite,
                     borderRadius: BorderRadius.circular(18),
@@ -417,22 +485,22 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
                   child: Column(
                     children: [
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Icon(stageIcon, size: 16, color: AppTheme.primaryTeal),
-                              const SizedBox(width: 8),
-                              Text(
-                                showCompletionCard ? 'اكتملت المقابلة السريرية ✓' : 'المرحلة $currentStep من 6: $stageLabel',
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.slateNavy,
-                                ),
+                          Icon(stageIcon, size: 16, color: AppTheme.primaryTeal),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              showCompletionCard ? 'اكتملت المقابلة' : 'المرحلة $currentStep من 6: $stageLabel',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.slateNavy,
                               ),
-                            ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
@@ -450,7 +518,7 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: LinearProgressIndicator(
@@ -557,12 +625,16 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
                       children: [
                         _ThreeDotsTypingIndicator(),
                         SizedBox(width: 10),
-                        Text(
-                          'المساعد السريري يحلل الإفادة ويكتب الرد...',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppTheme.slateMuted,
-                            fontStyle: FontStyle.italic,
+                        Expanded(
+                          child: Text(
+                            'المساعد الذكي يحلل الإفادة ويكتب الرد...',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.slateMuted,
+                              fontStyle: FontStyle.italic,
+                            ),
                           ),
                         ),
                       ],
@@ -683,11 +755,11 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'اكتملت المقابلة السريرية بنجاح 🌿',
+                                      'اكتملت المقابلة بنجاح',
                                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.slateNavy),
                                     ),
                                     Text(
-                                      'تم تحليل الإفادات وتوليد التقرير السريري للطبيب',
+                                      'تم تحليل الإفادات وتوليد التقرير الطبي للطبيب',
                                       style: TextStyle(fontSize: 11.5, color: AppTheme.slateMuted),
                                     ),
                                   ],
@@ -709,7 +781,7 @@ class _AIInterviewScreenState extends State<AIInterviewScreen> {
                                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.assessment_outlined),
                             label: const Text(
-                              '📊 استعراض التقرير السريري المبدئي',
+                              'استعراض التقرير الطبي المبدئي',
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                             ),
                           ),

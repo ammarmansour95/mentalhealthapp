@@ -407,22 +407,50 @@ class _AssessmentQuizScreenState extends State<AssessmentQuizScreen> {
     final severity = _submissionResult?['severity_level_display'] ?? '';
     final interp = _submissionResult?['interpretation_ar'] ?? '';
     final sevColor = _getSeverityColor(severity);
+    final maxScore = widget.assessmentCode.toUpperCase().contains('PHQ') ? 27 : 21;
+    final scoreRatio = (score / maxScore).clamp(0.0, 1.0);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('نتائج ${_appBarTitle}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        title: Text('نتائج $_appBarTitle', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 600),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Top Severity Thermometer Card
+                // Top Clinical Scale Badge
                 Container(
-                  padding: const EdgeInsets.all(22),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryTeal.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppTheme.primaryTeal.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.verified_outlined, size: 16, color: AppTheme.primaryTeal),
+                      const SizedBox(width: 6),
+                      Text(
+                        'مقياس سريري معتمد وفق معايير DSM-5 (${widget.assessmentCode})',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Radial Score Gauge Card
+                Container(
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: AppTheme.surfaceWhite,
                     borderRadius: BorderRadius.circular(24),
@@ -437,35 +465,96 @@ class _AssessmentQuizScreenState extends State<AssessmentQuizScreen> {
                   ),
                   child: Column(
                     children: [
+                      // Radial Score Ring
+                      SizedBox(
+                        width: 120,
+                        height: 120,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            SizedBox(
+                              width: 120,
+                              height: 120,
+                              child: CircularProgressIndicator(
+                                value: scoreRatio,
+                                strokeWidth: 10,
+                                backgroundColor: AppTheme.slateLight,
+                                valueColor: AlwaysStoppedAnimation<Color>(sevColor),
+                              ),
+                            ),
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  '$score',
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: sevColor,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                Text(
+                                  'من أصل $maxScore',
+                                  style: const TextStyle(fontSize: 11, color: AppTheme.slateMuted),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 18),
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                         decoration: BoxDecoration(
                           color: sevColor.withOpacity(0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(Icons.assessment_rounded, color: sevColor, size: 36),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'مجموع النقاط: $score',
-                        style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.slateNavy),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: sevColor.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: sevColor.withOpacity(0.3)),
                         ),
                         child: Text(
                           severity,
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: sevColor),
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: sevColor),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
+
+                // Severity Scale Guide Indicator
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.slateNavy.withOpacity(0.03),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppTheme.slateNavy.withOpacity(0.07)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.tune, size: 16, color: AppTheme.slateMuted),
+                          SizedBox(width: 6),
+                          Text('دليل تصنيف درجات المقياس:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.slateNavy)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _buildSeverityLevelBadge('طبيعي/بسيط', '0-4', score <= 4),
+                          const SizedBox(width: 4),
+                          _buildSeverityLevelBadge('خفيف', '5-9', score >= 5 && score <= 9),
+                          const SizedBox(width: 4),
+                          _buildSeverityLevelBadge('معتدل', '10-14', score >= 10 && score <= 14),
+                          const SizedBox(width: 4),
+                          _buildSeverityLevelBadge('شديد', '15+', score >= 15),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
 
                 // Clinical Interpretation Card
                 Card(
@@ -478,19 +567,19 @@ class _AssessmentQuizScreenState extends State<AssessmentQuizScreen> {
                           children: [
                             Icon(Icons.psychology_outlined, color: AppTheme.primaryTeal, size: 20),
                             SizedBox(width: 8),
-                            Text('التفسير السريري والتوصيات:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text('التفسير السريري والتوجيه الطبي:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
                           ],
                         ),
                         const Divider(height: 20),
                         Text(
                           interp.isNotEmpty ? interp : 'بناءً على إجاباتك، يوصى بمتابعة الحالة والتحدث مع أخصائي نفسي معتمد.',
-                          style: const TextStyle(fontSize: 13.5, height: 1.6, color: AppTheme.slateNavy),
+                          style: const TextStyle(fontSize: 13.5, height: 1.65, color: AppTheme.slateNavy),
                         ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 22),
 
                 // Referral Actions
                 ElevatedButton.icon(
@@ -526,6 +615,44 @@ class _AssessmentQuizScreenState extends State<AssessmentQuizScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeverityLevelBadge(String label, String range, bool isActive) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+        decoration: BoxDecoration(
+          color: isActive ? AppTheme.primaryTeal : AppTheme.surfaceWhite,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isActive ? AppTheme.primaryTeal : AppTheme.slateLight,
+            width: isActive ? 1.5 : 1.0,
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                color: isActive ? Colors.white : AppTheme.slateNavy,
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              range,
+              style: TextStyle(
+                fontSize: 9,
+                color: isActive ? Colors.white.withOpacity(0.9) : AppTheme.slateMuted,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );
