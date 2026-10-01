@@ -49,7 +49,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     role = serializers.ChoiceField(choices=User.ROLE_CHOICES, default='PATIENT')
     first_name = serializers.CharField(required=True, allow_blank=False)
     last_name = serializers.CharField(required=True, allow_blank=False)
-    phone_number = serializers.CharField(required=True, allow_blank=False, help_text="Syrian mobile number (+9639... / 09...)")
+    phone_number = serializers.CharField(required=True, allow_blank=False, help_text="Mobile phone number")
     age = serializers.IntegerField(required=True, min_value=12, max_value=110, help_text="Age in years")
     
     # Doctor specific optional fields during initial signup
@@ -66,10 +66,16 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
 
     def validate_phone_number(self, value):
+        import re
+        clean = re.sub(r'[\s\-\(\)]', '', str(value).strip())
+        if not clean:
+            raise serializers.ValidationError("رقم الهاتف مطلوب ولا يمكن أن يكون فارغاً.")
         try:
-            return normalize_syrian_phone(value)
-        except ValueError as e:
-            raise serializers.ValidationError(str(e))
+            return normalize_syrian_phone(clean)
+        except ValueError:
+            if re.match(r'^\+?\d{7,15}$', clean):
+                return clean
+            raise serializers.ValidationError("يرجى إدخال رقم هاتف صالح يتكون من 7 إلى 15 رقماً.")
 
     def create(self, validated_data):
         specialty = validated_data.pop('specialty', None)

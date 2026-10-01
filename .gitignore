@@ -43,3 +43,18 @@ ios/Flutter/.last_build_id
 .DS_Store
 Thumbs.db
 
+# ========================
+# Scratch & Diagrams
+# ========================
+scratch/
+*.drawio
+*.puml
+*.svg
+documentations/diagrams_png/
+documentations/final_graduation_diagrams_highres_png/
+documentations/final_graduation_diagrams_png/
+documentations/official_thesis_diagrams_png/
+documentations/theme_samples/
+documentations/*.pdf
+documentations/*.png
+documentations/system_diagrams_handbook.md
